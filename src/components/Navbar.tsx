@@ -3,14 +3,16 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Menu, X, Sparkles } from "lucide-react";
 import { isAuthenticated, logout } from "@/lib/auth";
 
-
 const navLinks = [
   { label: "Upload CV", to: "/upload" },
+  { label: "CV Tailoring", to: "/cv-tailoring" },
+  { label: "Cover Letter Generator", to: "/cover-letter" },
+  { label: "Application Package Builder", to: "/application-package" },
   { label: "Snapshot", to: "/snapshot" },
   { label: "Profile", to: "/profile" },
   { label: "Career Coach", to: "/coach" },
   { label: "Matches", to: "/matches" },
-  { label: "Cover Letter", to: "/cover-letter" },
+  { label: "Admin", to: "/admin" },
 ];
 
 export function Navbar() {
@@ -27,10 +29,6 @@ export function Navbar() {
     setSignedIn(false);
     navigate({ to: "/" });
   };
-
-
-
-
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">

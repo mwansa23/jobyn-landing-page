@@ -10,9 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ApplicationPackageRouteImport } from './routes/application-package'
+import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CoachRouteImport } from './routes/coach'
 import { Route as CoverLetterRouteImport } from './routes/cover-letter'
+import { Route as CvTailoringRouteImport } from './routes/cv-tailoring'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SnapshotRouteImport } from './routes/snapshot'
@@ -23,6 +27,21 @@ import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationPackageRoute = ApplicationPackageRouteImport.update({
+  id: '/application-package',
+  path: '/application-package',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApplicationsRoute = ApplicationsRouteImport.update({
+  id: '/applications',
+  path: '/applications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -38,6 +57,11 @@ const CoachRoute = CoachRouteImport.update({
 const CoverLetterRoute = CoverLetterRouteImport.update({
   id: '/cover-letter',
   path: '/cover-letter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CvTailoringRoute = CvTailoringRouteImport.update({
+  id: '/cv-tailoring',
+  path: '/cv-tailoring',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MatchesRoute = MatchesRouteImport.update({
@@ -61,9 +85,9 @@ const UploadRoute = UploadRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminVacanciesRoute = AdminVacanciesRouteImport.update({
-  id: '/admin/vacancies',
-  path: '/admin/vacancies',
-  getParentRoute: () => rootRouteImport,
+  id: '/vacancies',
+  path: '/vacancies',
+  getParentRoute: () => AdminRoute,
 } as any)
 const SitemapXmlRoute = SitemapXmlRouteImport.update({
   id: '/sitemap/xml',
@@ -73,9 +97,13 @@ const SitemapXmlRoute = SitemapXmlRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/application-package': typeof ApplicationPackageRoute
+  '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
   '/coach': typeof CoachRoute
   '/cover-letter': typeof CoverLetterRoute
+  '/cv-tailoring': typeof CvTailoringRoute
   '/matches': typeof MatchesRoute
   '/profile': typeof ProfileRoute
   '/snapshot': typeof SnapshotRoute
@@ -85,9 +113,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/application-package': typeof ApplicationPackageRoute
+  '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
   '/coach': typeof CoachRoute
   '/cover-letter': typeof CoverLetterRoute
+  '/cv-tailoring': typeof CvTailoringRoute
   '/matches': typeof MatchesRoute
   '/profile': typeof ProfileRoute
   '/snapshot': typeof SnapshotRoute
@@ -98,9 +130,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/application-package': typeof ApplicationPackageRoute
+  '/applications': typeof ApplicationsRoute
   '/auth': typeof AuthRoute
   '/coach': typeof CoachRoute
   '/cover-letter': typeof CoverLetterRoute
+  '/cv-tailoring': typeof CvTailoringRoute
   '/matches': typeof MatchesRoute
   '/profile': typeof ProfileRoute
   '/snapshot': typeof SnapshotRoute
@@ -112,9 +148,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/application-package'
+    | '/applications'
     | '/auth'
     | '/coach'
     | '/cover-letter'
+    | '/cv-tailoring'
     | '/matches'
     | '/profile'
     | '/snapshot'
@@ -124,9 +164,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
+    | '/application-package'
+    | '/applications'
     | '/auth'
     | '/coach'
     | '/cover-letter'
+    | '/cv-tailoring'
     | '/matches'
     | '/profile'
     | '/snapshot'
@@ -136,9 +180,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/application-package'
+    | '/applications'
     | '/auth'
     | '/coach'
     | '/cover-letter'
+    | '/cv-tailoring'
     | '/matches'
     | '/profile'
     | '/snapshot'
@@ -149,14 +197,17 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  ApplicationPackageRoute: typeof ApplicationPackageRoute
+  ApplicationsRoute: typeof ApplicationsRoute
   AuthRoute: typeof AuthRoute
   CoachRoute: typeof CoachRoute
   CoverLetterRoute: typeof CoverLetterRoute
+  CvTailoringRoute: typeof CvTailoringRoute
   MatchesRoute: typeof MatchesRoute
   ProfileRoute: typeof ProfileRoute
   SnapshotRoute: typeof SnapshotRoute
   UploadRoute: typeof UploadRoute
-  AdminVacanciesRoute: typeof AdminVacanciesRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
 }
 
@@ -167,6 +218,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/application-package': {
+      id: '/application-package'
+      path: '/application-package'
+      fullPath: '/application-package'
+      preLoaderRoute: typeof ApplicationPackageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/applications': {
+      id: '/applications'
+      path: '/applications'
+      fullPath: '/applications'
+      preLoaderRoute: typeof ApplicationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -188,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/cover-letter'
       fullPath: '/cover-letter'
       preLoaderRoute: typeof CoverLetterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cv-tailoring': {
+      id: '/cv-tailoring'
+      path: '/cv-tailoring'
+      fullPath: '/cv-tailoring'
+      preLoaderRoute: typeof CvTailoringRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/matches': {
@@ -220,10 +299,10 @@ declare module '@tanstack/react-router' {
     }
     '/admin/vacancies': {
       id: '/admin/vacancies'
-      path: '/admin/vacancies'
+      path: '/vacancies'
       fullPath: '/admin/vacancies'
       preLoaderRoute: typeof AdminVacanciesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/sitemap/xml': {
       id: '/sitemap/xml'
@@ -235,16 +314,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminVacanciesRoute: typeof AdminVacanciesRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminVacanciesRoute: AdminVacanciesRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  ApplicationPackageRoute: ApplicationPackageRoute,
+  ApplicationsRoute: ApplicationsRoute,
   AuthRoute: AuthRoute,
   CoachRoute: CoachRoute,
   CoverLetterRoute: CoverLetterRoute,
+  CvTailoringRoute: CvTailoringRoute,
   MatchesRoute: MatchesRoute,
   ProfileRoute: ProfileRoute,
   SnapshotRoute: SnapshotRoute,
   UploadRoute: UploadRoute,
-  AdminVacanciesRoute: AdminVacanciesRoute,
   SitemapXmlRoute: SitemapXmlRoute,
 }
 export const routeTree = rootRouteImport

@@ -54,13 +54,12 @@ function arr(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-/** Reads the candidate id the app already stores (resume upload response or auth payload). */
+/** Reads the user ID required by the candidate-profile endpoint from the upload response. */
 export function getCandidateId(): string | null {
   const result = getStoredResumeResult<Raw>();
   const candidate =
-    pick(result, "candidate_id", "candidateId") ??
-    pick(obj(result?.["candidate"]), "id", "candidate_id") ??
-    pick(result, "id", "resume_id", "parsed_resume_id");
+    pick(result, "user_id", "candidate_id", "candidateId") ??
+    pick(obj(result?.["candidate"]), "user_id", "candidate_id");
   return candidate === undefined ? null : String(candidate);
 }
 
@@ -82,21 +81,23 @@ function mapExperience(value: unknown): CandidateProfile["experience"] {
       const o = obj(e);
       if (!o) return null;
       const start = str(pick(o, "start_date", "start", "from"));
-      const end = str(pick(o, "end_date", "end", "to"), "Present");
-      const period = str(pick(o, "period", "dates"), start ? `${start} — ${end}` : "");
+      const end = str(pick(o, "end_date", "end", "to"));
+      const period = str(pick(o, "period", "dates"), [start, end].filter(Boolean).join(" — "));
       const bullets = arr(pick(o, "bullets", "highlights", "responsibilities", "achievements"))
         .map((b) => (typeof b === "string" ? b : str(pick(obj(b), "text", "description"))))
         .filter(Boolean);
       const description = str(pick(o, "description", "summary"));
       return {
-        role: str(pick(o, "role", "title", "position"), "Role"),
+        role: str(pick(o, "role", "title", "position")),
         company: str(pick(o, "company", "employer", "organization")),
         location: str(pick(o, "location", "city")),
         period,
         bullets: bullets.length ? bullets : description ? [description] : [],
       };
     })
-    .filter((e): e is CandidateProfile["experience"][number] => Boolean(e));
+    .filter((e): e is CandidateProfile["experience"][number] =>
+      Boolean(e && (e.role || e.company || e.bullets.length)),
+    );
 }
 
 function mapEducation(value: unknown): CandidateProfile["education"] {
@@ -108,13 +109,15 @@ function mapEducation(value: unknown): CandidateProfile["education"] {
       const end = str(pick(o, "end_date", "end", "to", "graduation_year", "year"));
       const period = str(pick(o, "period", "dates"), [start, end].filter(Boolean).join(" — "));
       return {
-        degree: str(pick(o, "degree", "qualification", "program", "title"), "Education"),
+        degree: str(pick(o, "degree", "qualification", "program", "title")),
         school: str(pick(o, "school", "institution", "university", "college")),
         period,
         detail: str(pick(o, "detail", "description", "field_of_study", "field", "grade")),
       };
     })
-    .filter((e): e is CandidateProfile["education"][number] => Boolean(e));
+    .filter((e): e is CandidateProfile["education"][number] =>
+      Boolean(e && (e.degree || e.school || e.detail)),
+    );
 }
 
 function mapRoles(value: unknown): { title: string; match: number }[] {
@@ -131,12 +134,20 @@ function mapRoles(value: unknown): { title: string; match: number }[] {
     .filter((r): r is { title: string; match: number } => Boolean(r));
 }
 
-/** Backends often nest the profile under `profile`, `data`, `parsed_data` or `result`. */
+/** Backends often nest the profile under `content`, `profile`, `data` or `parsed_data`. */
 function unwrap(raw: unknown): Raw | null {
   const root = obj(raw);
   if (!root) return null;
   let merged: Raw = { ...root };
-  for (const key of ["parsed_data", "profile", "candidate", "data", "result", "analysis"]) {
+  for (const key of [
+    "content",
+    "parsed_data",
+    "profile",
+    "candidate",
+    "data",
+    "result",
+    "analysis",
+  ]) {
     const nested = obj(root[key]);
     if (nested) merged = { ...nested, ...merged, ...nested };
   }
@@ -166,15 +177,21 @@ export function mapCandidateProfile(raw: unknown): CandidateProfile {
     { label: "Certifications", done: arr(pick(src, "certifications")).length > 0 },
   ];
 
-  const reported = pick(src, "profile_completion", "completeness", "completion_score", "completion");
+  const reported = pick(
+    src,
+    "profile_completion",
+    "completeness",
+    "completion_score",
+    "completion",
+  );
   const score =
     reported === undefined
-      ? 0
+      ? Math.round((sections.filter((section) => section.done).length / sections.length) * 100)
       : num(typeof reported === "object" ? pick(obj(reported), "score", "value") : reported);
 
   return {
-    name: str(pick(src, "full_name", "name", "candidate_name"), "Candidate"),
-    headline: str(pick(src, "headline", "current_role", "title", "career_level"), "Professional"),
+    name: str(pick(src, "full_name", "name", "candidate_name")),
+    headline: str(pick(src, "headline", "current_role", "title", "career_level")),
     location: str(pick(contact, "location", "city", "address")),
     email: str(pick(contact, "email")),
     phone: str(pick(contact, "phone", "phone_number", "mobile")),
@@ -185,6 +202,21 @@ export function mapCandidateProfile(raw: unknown): CandidateProfile {
     education,
     recommendedRoles,
   };
+}
+
+export function hasCandidateProfileData(profile: CandidateProfile): boolean {
+  return Boolean(
+    profile.name ||
+    profile.headline ||
+    profile.location ||
+    profile.email ||
+    profile.phone ||
+    profile.summary ||
+    profile.skills.length ||
+    profile.experience.length ||
+    profile.education.length ||
+    profile.recommendedRoles.length,
+  );
 }
 
 /** GET /api/v1/resume/profile/{candidate_id} */
