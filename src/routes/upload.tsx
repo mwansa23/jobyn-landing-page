@@ -8,16 +8,27 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { isAuthenticated } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
-import { isProcessing, storeResumeResult, uploadResume, type ResumeUploadResponse } from "@/lib/resume";
-
+import {
+  isProcessing,
+  storeResumeResult,
+  uploadMultipartDocument,
+  type ParsedResumeRead,
+} from "@/lib/resume";
 
 export const Route = createFileRoute("/upload")({
   head: () => ({
     meta: [
       { title: "Upload Your CV — Jobyn AI" },
-      { name: "description", content: "Upload your PDF or DOCX resume. Jobyn AI generates your Career Snapshot, job matches and cover letters in under a minute." },
+      {
+        name: "description",
+        content:
+          "Upload your PDF or DOCX resume. Jobyn AI generates your Career Snapshot, job matches and cover letters in under a minute.",
+      },
       { property: "og:title", content: "Upload Your CV — Jobyn AI" },
-      { property: "og:description", content: "Drag & drop your CV and watch AI build your personalized Career Snapshot." },
+      {
+        property: "og:description",
+        content: "Drag & drop your CV and watch AI build your personalized Career Snapshot.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -47,7 +58,8 @@ function formatBytes(bytes: number) {
 function validate(file: File): string | null {
   const nameOk = ACCEPTED_EXT.some((ext) => file.name.toLowerCase().endsWith(ext));
   if (!nameOk) return "Unsupported file type. Please upload a PDF or DOCX.";
-  if (file.size > MAX_SIZE) return `File is too large (${formatBytes(file.size)}). Max size is 10 MB.`;
+  if (file.size > MAX_SIZE)
+    return `File is too large (${formatBytes(file.size)}). Max size is 10 MB.`;
   if (file.size === 0) return "File appears to be empty.";
   return null;
 }
@@ -61,7 +73,7 @@ function UploadPage() {
   const [authError, setAuthError] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [stepIndex, setStepIndex] = useState(-1);
-  const [result, setResult] = useState<ResumeUploadResponse | null>(null);
+  const [result, setResult] = useState<ParsedResumeRead | null>(null);
   const [signedIn, setSignedIn] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +84,7 @@ function UploadPage() {
   const handleFile = useCallback((selected: File) => {
     setError(null);
     setAuthError(false);
+    setResult(null);
     setProgress(0);
     const err = validate(selected);
     if (err) {
@@ -99,9 +112,10 @@ function UploadPage() {
     setError(null);
     setAuthError(false);
     setResult(null);
+    setStepIndex(-1);
 
     try {
-      const data = await uploadResume(file, setProgress);
+      const data = await uploadMultipartDocument("/api/v1/resume/upload", file, setProgress);
       storeResumeResult(data);
       setResult(data);
       setStatus("processing");
@@ -115,33 +129,31 @@ function UploadPage() {
     }
   }, [file]);
 
-  // Advance the AI pipeline steps once the backend has accepted the file,
-  // then hand off to the snapshot page.
   useEffect(() => {
     if (status !== "processing") return;
     if (stepIndex >= PROCESSING_STEPS.length) {
       setStatus("done");
-      const t = setTimeout(() => navigate({ to: "/snapshot" }), 600);
-      return () => clearTimeout(t);
+      const timeout = setTimeout(() => navigate({ to: "/snapshot" }), 600);
+      return () => clearTimeout(timeout);
     }
-    const t = setTimeout(() => setStepIndex((i) => i + 1), 700);
-    return () => clearTimeout(t);
+
+    const timeout = setTimeout(() => setStepIndex((current) => current + 1), 700);
+    return () => clearTimeout(timeout);
   }, [status, stepIndex, navigate]);
 
   const reset = () => {
     setFile(null);
     setStatus("idle");
+    setStepIndex(-1);
+    setResult(null);
     setProgress(0);
     setError(null);
     setAuthError(false);
-    setStepIndex(-1);
-    setResult(null);
     if (inputRef.current) inputRef.current.value = "";
   };
 
   const showProcessing = status === "processing" || status === "done";
   const backendProcessing = isProcessing(result);
-
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -156,8 +168,8 @@ function UploadPage() {
               Discover how AI sees your career
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              Upload your CV to receive a personalized career profile, intelligent
-              job matches, and application-ready documents — in under a minute.
+              Upload your CV to receive a personalized career profile, intelligent job matches, and
+              application-ready documents — in under a minute.
             </p>
           </div>
 
@@ -176,14 +188,13 @@ function UploadPage() {
                       ? `Your resume is queued for AI parsing — ${file?.name}`
                       : `Our AI is analyzing ${file?.name ?? "your resume"} in real time.`}
                   </p>
-
                 </div>
               </div>
 
               <ul className="mt-8 space-y-3">
-                {PROCESSING_STEPS.map((step, i) => {
-                  const done = i < stepIndex;
-                  const active = i === stepIndex;
+                {PROCESSING_STEPS.map((step, index) => {
+                  const done = index < stepIndex;
+                  const active = index === stepIndex;
                   return (
                     <li
                       key={step}
@@ -209,7 +220,7 @@ function UploadPage() {
                         ) : active ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <span className="text-xs font-semibold">{i + 1}</span>
+                          <span className="text-xs font-semibold">{index + 1}</span>
                         )}
                       </div>
                       <span
@@ -334,21 +345,16 @@ function UploadPage() {
                 </div>
               )}
 
-
-
               <div className="mt-6 flex justify-end">
-                <Button
-                  onClick={startUpload}
-                  disabled={!file || status === "uploading"}
-                  size="lg"
-                >
+                <Button onClick={startUpload} disabled={!file || status === "uploading"} size="lg">
                   {status === "uploading" ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading…
                     </>
                   ) : (
                     <>
-                      <Sparkles className="mr-2 h-4 w-4" /> Analyze with AI
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {status === "error" ? "Retry upload" : "Analyze with AI"}
                     </>
                   )}
                 </Button>

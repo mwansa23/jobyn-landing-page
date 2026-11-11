@@ -6,6 +6,7 @@ import {
   clearStoredToken,
   parseApiErrorMessage,
 } from "./api";
+import { getCurrentFirebaseIdToken, getFirebaseCurrentUser } from "./firebase";
 
 export type ParsedResumeRead = Record<string, unknown>;
 
@@ -37,12 +38,15 @@ export function isProcessing(result: ParsedResumeRead | null): boolean {
  * Uploads the CV as multipart/form-data (field name: `file`) with upload progress.
  * Uses XMLHttpRequest because fetch cannot report upload progress.
  */
-export function uploadMultipartDocument(
+export async function uploadMultipartDocument(
   path: string,
   file: File,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<ParsedResumeRead> {
+  const firebaseUser = getFirebaseCurrentUser();
+  const token = firebaseUser ? await getCurrentFirebaseIdToken() : getStoredToken();
+
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
@@ -51,7 +55,6 @@ export function uploadMultipartDocument(
     xhr.open("POST", `${API_BASE_URL}${path}`);
     xhr.setRequestHeader("Accept", "application/json");
     // Do NOT set Content-Type — the browser sets the multipart boundary.
-    const token = getStoredToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
     xhr.upload.onprogress = (event) => {
@@ -75,7 +78,7 @@ export function uploadMultipartDocument(
           data = xhr.responseText;
         }
       }
-      if (xhr.status === 200 || xhr.status === 201) {
+      if (xhr.status >= 200 && xhr.status < 300) {
         if (!data || typeof data !== "object" || Array.isArray(data)) {
           reject(new ApiError("The server returned an invalid parsed resume response.", 502, data));
           return;
@@ -105,7 +108,7 @@ export function uploadMultipartDocument(
         resolve(payload);
         return;
       }
-      if (xhr.status === 401) clearStoredToken();
+      if (xhr.status === 401 && !getFirebaseCurrentUser()) clearStoredToken();
       reject(new ApiError(parseApiErrorMessage(data, xhr.status), xhr.status, data));
     };
 
