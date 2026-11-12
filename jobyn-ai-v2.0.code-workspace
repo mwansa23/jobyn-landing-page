@@ -1,11 +1,11 @@
 {
-	"folders": [
-		{
-			"path": "../jobyn-ai-v2.0"
-		},
-		{
-			"path": "../jobyn-ai-v2.0/backend/ai"
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "../jobyn-ai-v2.0",
+    },
+    {
+      "path": "../jobyn-ai-v2.0/backend/ai",
+    },
+  ],
+  "settings": {},
 }

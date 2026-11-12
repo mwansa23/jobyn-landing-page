@@ -1,39 +1,50 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import {
-
-  Sparkles,
-  Gauge,
-  FileCheck2,
-  Target,
-  TrendingUp,
   AlertCircle,
-  Trophy,
-  Lightbulb,
-  Shield,
   ArrowRight,
   BadgeCheck,
-  Rocket,
-  Brain,
-  UserRound,
+  Briefcase,
+  Gauge,
+  Sparkles,
+  Target,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Navbar } from "@/components/Navbar";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Footer } from "@/components/Footer";
-import { mergeSnapshot, type SnapshotData } from "@/lib/snapshot-data";
-import { getStoredResumeResult, isProcessing } from "@/lib/resume";
+import { Navbar } from "@/components/Navbar";
+import { ApiError } from "@/lib/api";
+import {
+  fetchCandidateProfile,
+  getCandidateId,
+  hasCandidateProfileData,
+  mapCandidateProfile,
+  type CandidateProfile,
+} from "@/lib/candidate-profile";
+import { getStoredResumeResult } from "@/lib/resume";
 
+type Raw = Record<string, unknown>;
+type ScoreMetric = { label: string; value: number; icon: ComponentType<{ className?: string }> };
 
 export const Route = createFileRoute("/snapshot")({
   head: () => ({
     meta: [
       { title: "AI Career Snapshot — Jobyn AI" },
-      { name: "description", content: "Your instant AI Career Snapshot: career level, ATS score, top skills, missing skills, recommended roles, strengths and next actions." },
+      {
+        name: "description",
+        content:
+          "Review the skills, experience, scores and recommended roles in your parsed resume.",
+      },
       { property: "og:title", content: "AI Career Snapshot — Jobyn AI" },
-      { property: "og:description", content: "See how AI reads your career — level, ATS score, strengths, gaps and next best actions." },
+      {
+        property: "og:description",
+        content:
+          "Review the skills, experience, scores and recommended roles in your parsed resume.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -41,348 +52,294 @@ export const Route = createFileRoute("/snapshot")({
   component: SnapshotPage,
 });
 
-// Placeholder values, used only until the backend response supplies real data.
-const demoSnapshot: SnapshotData = {
+function findValue(source: unknown, keys: string[]): unknown {
+  if (!source || typeof source !== "object") return undefined;
+  if (Array.isArray(source)) {
+    for (const item of source) {
+      const value = findValue(item, keys);
+      if (value !== undefined) return value;
+    }
+    return undefined;
+  }
 
-  candidateName: "Alex Morgan",
-  headline: "Senior Frontend Engineer · 7 yrs experience",
-  careerLevel: { label: "Senior", tier: "IC5 / L5 equivalent", progress: 78 },
-  atsScore: 86,
-  completeness: 82,
-  confidence: 91,
-  topSkills: ["React", "TypeScript", "Next.js", "Design Systems", "Tailwind CSS", "Playwright"],
-  missingSkills: ["System Design", "Kubernetes", "GraphQL Federation", "Leadership metrics"],
-  recommendedRoles: [
-    { title: "Staff Frontend Engineer", match: 94 },
-    { title: "Frontend Tech Lead", match: 91 },
-    { title: "Design Systems Engineer", match: 82 },
-  ],
-  aiSummary:
-    "Alex is a senior frontend engineer with strong product intuition and a track record of leading performance and design-system initiatives. Their profile shows excellent depth in modern React and TypeScript ecosystems, with growing full-stack range. Ready to step into staff-level or technical leadership roles at a product-led company.",
-  strengths: [
-    "Consistent impact on performance and DX",
-    "Design system ownership across teams",
-    "Mentors and hires other engineers",
-  ],
-  improvements: [
-    "Quantify leadership outcomes (headcount, scope)",
-    "Highlight cross-functional partnerships explicitly",
-    "Add recent system-design or platform work",
-  ],
-  nextAction:
-    "Apply to 3 Staff Frontend roles this week and refresh the top of your CV with two quantified impact bullets.",
-};
+  const record = source as Raw;
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null && record[key] !== "") {
+      return record[key];
+    }
+  }
+  for (const value of Object.values(record)) {
+    const nested = findValue(value, keys);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
+function scoreValue(source: unknown, keys: string[]): number | null {
+  const raw = findValue(source, keys);
+  const value =
+    raw && typeof raw === "object" ? ((raw as Raw)["score"] ?? (raw as Raw)["value"]) : raw;
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(100, Math.round(parsed))) : null;
+}
+
+function getScoreMetrics(source: unknown, profile: CandidateProfile): ScoreMetric[] {
+  const metrics: ScoreMetric[] = [];
+  const ats = scoreValue(source, ["ats_score", "atsScore"]);
+  const completeness =
+    scoreValue(source, [
+      "profile_completion",
+      "completeness",
+      "resume_completeness",
+      "completeness_score",
+    ]) ??
+    (profile.completion.sections.length
+      ? Math.round(
+          (profile.completion.sections.filter((section) => section.done).length /
+            profile.completion.sections.length) *
+            100,
+        )
+      : null);
+  const readiness = scoreValue(source, ["readiness_score", "career_readiness_score"]);
+  const confidence = scoreValue(source, ["confidence", "confidence_score"]);
+
+  if (ats !== null) metrics.push({ label: "ATS score", value: ats, icon: Gauge });
+  if (completeness !== null) {
+    metrics.push({ label: "Profile completeness", value: completeness, icon: BadgeCheck });
+  }
+  if (readiness !== null) {
+    metrics.push({ label: "Career readiness", value: readiness, icon: Target });
+  }
+  if (confidence !== null) {
+    metrics.push({ label: "Analysis confidence", value: confidence, icon: Sparkles });
+  }
+  return metrics;
+}
 
 function SnapshotPage() {
-  const [raw, setRaw] = useState<Record<string, unknown> | null>(null);
+  const [candidate, setCandidate] = useState<CandidateProfile | null>(null);
+  const [scores, setScores] = useState<ScoreMetric[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setRaw(getStoredResumeResult<Record<string, unknown>>());
+    let active = true;
+    const stored = getStoredResumeResult<Raw>();
+    if (!stored) {
+      setLoading(false);
+      return;
+    }
+
+    const storedProfile = mapCandidateProfile(stored);
+    if (hasCandidateProfileData(storedProfile)) {
+      setCandidate(storedProfile);
+      setScores(getScoreMetrics(stored, storedProfile));
+    }
+
+    const candidateId = getCandidateId();
+    if (!candidateId) {
+      setLoading(false);
+      return;
+    }
+
+    fetchCandidateProfile(candidateId)
+      .then((profile) => {
+        if (active && hasCandidateProfileData(profile)) setCandidate(profile);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Could not load your parsed resume. Please try again.",
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const snapshot = mergeSnapshot(demoSnapshot, raw);
-  const parsing = isProcessing(raw);
+  const hasContent = candidate !== null && hasCandidateProfileData(candidate);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
       <main className="flex-1">
-        {parsing && (
-          <div className="border-b border-primary/20 bg-primary/5 px-4 py-3 text-center text-sm text-foreground">
-            Your resume is still being parsed by our AI — insights below will update once
-            processing completes.
-          </div>
-        )}
-        {/* Hero */}
-
-        <section className="relative overflow-hidden border-b border-border/60 bg-gradient-to-b from-primary/[0.04] via-background to-background">
-          <div className="pointer-events-none absolute inset-0 hero-glow" aria-hidden />
-          <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Sparkles className="h-4 w-4" />
-              AI Career Snapshot
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+          {loading && (
+            <div className="space-y-5">
+              <Skeleton className="h-36 w-full rounded-xl" />
+              <div className="grid gap-5 md:grid-cols-2">
+                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-48 w-full rounded-xl" />
+              </div>
             </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              How AI sees {snapshot.candidateName.split(" ")[0]}'s career
-            </h1>
-            <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
-              {snapshot.headline}. Generated in seconds from your CV — refined
-              by our AI Career Intelligence engine.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link to="/profile">
-                  View full profile <ArrowRight className="ml-2 h-4 w-4" />
+          )}
+
+          {!loading && error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {!loading && !hasContent && (
+            <Card className="mx-auto max-w-xl p-8 text-center sm:p-12">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary">
+                <Briefcase className="h-6 w-6" />
+              </div>
+              <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">
+                No parsed resume yet
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Upload your PDF or DOCX resume to see the profile details and insights returned by
+                the backend.
+              </p>
+              <Button asChild className="mt-6">
+                <Link to="/upload">
+                  Upload a resume <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link to="/matches">See job matches</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
+            </Card>
+          )}
 
-        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Career Level */}
-            <InsightCard
-              icon={Trophy}
-              title="Career Level"
-              accent="primary"
-              className="bg-gradient-to-br from-primary/5 to-background"
-            >
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-foreground">
-                  {snapshot.careerLevel.label}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {snapshot.careerLevel.tier}
-                </span>
-              </div>
-              <Progress value={snapshot.careerLevel.progress} className="mt-4 h-2" />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {snapshot.careerLevel.progress}% of the way toward Staff / L6.
-              </p>
-            </InsightCard>
+          {!loading && hasContent && candidate && (
+            <>
+              <header className="mb-8">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Sparkles className="h-4 w-4" />
+                  Parsed resume
+                </div>
+                <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                  {candidate.name
+                    ? `${candidate.name}'s career snapshot`
+                    : candidate.headline || "Career snapshot"}
+                </h1>
+                {candidate.headline && (
+                  <p className="mt-2 text-lg text-muted-foreground">{candidate.headline}</p>
+                )}
+                {candidate.summary && (
+                  <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                    {candidate.summary}
+                  </p>
+                )}
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Button asChild variant="outline">
+                    <Link to="/profile">View full profile</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/matches">View job matches</Link>
+                  </Button>
+                </div>
+              </header>
 
-            {/* ATS Score */}
-            <InsightCard
-              icon={Gauge}
-              title="ATS Score"
-              accent="emerald"
-              className="bg-gradient-to-br from-[color:var(--emerald-soft)] to-background"
-            >
-              <ScoreRing value={snapshot.atsScore} tint="emerald" />
-              <p className="mt-3 text-xs text-muted-foreground">
-                Your resume parses cleanly against most applicant tracking
-                systems.
-              </p>
-            </InsightCard>
+              {scores.length > 0 && (
+                <section aria-labelledby="score-overview" className="mb-8">
+                  <h2 id="score-overview" className="mb-4 text-xl font-semibold text-foreground">
+                    Score overview
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {scores.map(({ label, value, icon: Icon }) => (
+                      <Card key={label} className="p-5">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Icon className="h-4 w-4 text-primary" />
+                          <h3 className="text-sm font-medium">{label}</h3>
+                        </div>
+                        <p className="mt-3 text-3xl font-bold text-foreground">{value}%</p>
+                        <Progress value={value} className="mt-3 h-2" />
+                      </Card>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-            {/* Completeness */}
-            <InsightCard icon={FileCheck2} title="Resume Completeness" accent="primary">
-              <ScoreRing value={snapshot.completeness} tint="primary" />
-              <p className="mt-3 text-xs text-muted-foreground">
-                Add portfolio links and certifications to reach 100%.
-              </p>
-            </InsightCard>
-
-            {/* Top Skills */}
-            <InsightCard icon={BadgeCheck} title="Top Skills" accent="primary">
-              <div className="flex flex-wrap gap-2">
-                {snapshot.topSkills.map((s) => (
-                  <Badge
-                    key={s}
-                    className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/15"
-                  >
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            </InsightCard>
-
-            {/* Missing Skills */}
-            <InsightCard icon={AlertCircle} title="Missing Skills" accent="amber">
-              <div className="flex flex-wrap gap-2">
-                {snapshot.missingSkills.map((s) => (
-                  <Badge
-                    key={s}
-                    variant="outline"
-                    className="rounded-full border-amber-500/40 bg-amber-500/5 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
-                  >
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Common gaps for staff-level frontend roles.
-              </p>
-            </InsightCard>
-
-            {/* Recommended Roles */}
-            <InsightCard icon={Target} title="Recommended Roles" accent="emerald">
-              <ul className="space-y-3">
-                {snapshot.recommendedRoles.map((r) => (
-                  <li key={r.title}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-foreground">{r.title}</span>
-                      <span className="flex items-center gap-1 rounded-full bg-[color:var(--emerald-soft)] px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                        <TrendingUp className="h-3 w-3" />
-                        {r.match}%
-                      </span>
+              <div className="grid gap-6 lg:grid-cols-2">
+                {candidate.skills.length > 0 && (
+                  <Card className="p-6">
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <BadgeCheck className="h-5 w-5 text-primary" />
+                      Skills
+                    </h2>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {candidate.skills.map((skill) => (
+                        <Badge key={skill.name} variant="secondary">
+                          {skill.name}
+                          {skill.level && <span className="ml-1.5 opacity-70">{skill.level}</span>}
+                        </Badge>
+                      ))}
                     </div>
-                    <Progress value={r.match} className="mt-1.5 h-1.5" />
-                  </li>
-                ))}
-              </ul>
-            </InsightCard>
+                  </Card>
+                )}
 
-            {/* AI Summary */}
-            <InsightCard
-              icon={Brain}
-              title="AI Summary"
-              accent="primary"
-              className="md:col-span-2"
-            >
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {snapshot.aiSummary}
-              </p>
-            </InsightCard>
+                {candidate.recommendedRoles.length > 0 && (
+                  <Card className="p-6">
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <Target className="h-5 w-5 text-primary" />
+                      Recommended job titles
+                    </h2>
+                    <ul className="mt-4 space-y-3">
+                      {candidate.recommendedRoles.map((role) => (
+                        <li
+                          key={role.title}
+                          className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                        >
+                          <span className="font-medium text-foreground">{role.title}</span>
+                          {role.match > 0 && (
+                            <span className="text-sm font-semibold text-primary">
+                              {role.match}%
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
 
-            {/* Confidence */}
-            <InsightCard icon={Sparkles} title="Confidence Score" accent="emerald">
-              <ScoreRing value={snapshot.confidence} tint="emerald" />
-              <p className="mt-3 text-xs text-muted-foreground">
-                How certain our AI is about this snapshot, based on CV quality
-                and signal density.
-              </p>
-            </InsightCard>
-
-            {/* Strengths */}
-            <InsightCard icon={Trophy} title="Strength Areas" accent="emerald">
-              <ul className="space-y-2">
-                {snapshot.strengths.map((s) => (
-                  <li key={s} className="flex items-start gap-2 text-sm text-foreground">
-                    <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald" />
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </InsightCard>
-
-            {/* Improvements */}
-            <InsightCard icon={Lightbulb} title="Improvement Opportunities" accent="amber">
-              <ul className="space-y-2">
-                {snapshot.improvements.map((s) => (
-                  <li key={s} className="flex items-start gap-2 text-sm text-foreground">
-                    <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </InsightCard>
-
-            {/* Next Action */}
-            <InsightCard
-              icon={Rocket}
-              title="Suggested Next Action"
-              accent="primary"
-              className="md:col-span-2 bg-gradient-to-br from-primary/8 via-background to-[color:var(--emerald-soft)]/40"
-            >
-              <p className="text-base font-medium text-foreground">
-                {snapshot.nextAction}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Button asChild>
-                  <Link to="/matches">
-                    Browse matched jobs <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to="/cover-letter">Generate a cover letter</Link>
-                </Button>
+                {candidate.experience.length > 0 && (
+                  <Card className="p-6 lg:col-span-2">
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                      Experience highlights
+                    </h2>
+                    <ol className="mt-5 space-y-5">
+                      {candidate.experience.map((job, index) => (
+                        <li
+                          key={`${job.role}-${job.company}-${index}`}
+                          className="border-l-2 border-primary/20 pl-4"
+                        >
+                          {(job.role || job.company) && (
+                            <h3 className="font-semibold text-foreground">
+                              {[job.role, job.company].filter(Boolean).join(" · ")}
+                            </h3>
+                          )}
+                          {(job.period || job.location) && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {[job.period, job.location].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {job.bullets.length > 0 && (
+                            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                              {job.bullets.map((highlight, bulletIndex) => (
+                                <li key={`${bulletIndex}-${highlight}`}>{highlight}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </Card>
+                )}
               </div>
-            </InsightCard>
-          </div>
-
-          {/* Trust signals */}
-          <div className="mt-12 rounded-2xl border border-border/70 bg-surface/60 p-6 sm:p-8">
-            <div className="flex flex-wrap items-start gap-6">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <Shield className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Trust &amp; safety
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    How your data and this snapshot are handled.
-                  </p>
-                </div>
-              </div>
-              <ul className="grid flex-1 gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-                <li className="flex items-start gap-2">
-                  <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  Privacy-first processing — your CV isn't shared or sold.
-                </li>
-                <li className="flex items-start gap-2">
-                  <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  Secure document handling, encrypted in transit and at rest.
-                </li>
-                <li className="flex items-start gap-2">
-                  <Brain className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  Insights are AI-generated and improve as you refine your CV.
-                </li>
-                <li className="flex items-start gap-2">
-                  <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  Human review recommended before applying to any role.
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
+            </>
+          )}
+        </div>
       </main>
       <Footer />
-    </div>
-  );
-}
-
-function InsightCard({
-  icon: Icon,
-  title,
-  accent,
-  className = "",
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  accent: "primary" | "emerald" | "amber";
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const accentStyles =
-    accent === "emerald"
-      ? "bg-[color:var(--emerald-soft)] text-emerald-700 dark:text-emerald-300"
-      : accent === "amber"
-        ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-        : "bg-primary/10 text-primary";
-
-  return (
-    <Card
-      className={`group relative overflow-hidden border-border/70 p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 ${className}`}
-    >
-      <div className="flex items-center gap-3">
-        <div className={`grid h-9 w-9 place-items-center rounded-lg ${accentStyles}`}>
-          <Icon className="h-4.5 w-4.5" />
-        </div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/80">
-          {title}
-        </h3>
-      </div>
-      <div className="mt-5">{children}</div>
-    </Card>
-  );
-}
-
-function ScoreRing({ value, tint }: { value: number; tint: "primary" | "emerald" }) {
-  const color = tint === "emerald" ? "var(--emerald)" : "var(--primary)";
-  return (
-    <div className="flex items-center gap-4">
-      <div
-        className="relative grid h-20 w-20 shrink-0 place-items-center rounded-full"
-        style={{
-          background: `conic-gradient(${color} ${value * 3.6}deg, color-mix(in oklab, ${color} 12%, transparent) 0deg)`,
-        }}
-      >
-        <div className="grid h-16 w-16 place-items-center rounded-full bg-background">
-          <span className="text-lg font-bold text-foreground">{value}</span>
-        </div>
-      </div>
-      <div className="flex-1">
-        <Progress value={value} className="h-2" />
-        <p className="mt-2 text-xs text-muted-foreground">out of 100</p>
-      </div>
     </div>
   );
 }

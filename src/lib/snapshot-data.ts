@@ -36,7 +36,7 @@ function asStringArray(value: unknown): string[] | undefined {
     .map((v) => {
       if (typeof v === "string") return v;
       if (v && typeof v === "object") {
-        const named = (v as { name?: unknown; skill?: unknown; title?: unknown });
+        const named = v as { name?: unknown; skill?: unknown; title?: unknown };
         return String(named.name ?? named.skill ?? named.title ?? "");
       }
       return "";
@@ -96,8 +96,8 @@ export function mergeSnapshot(fallback: SnapshotData, raw: unknown): SnapshotDat
     candidateName:
       (pick(src, "full_name", "candidate_name", "name") as string | undefined) ??
       fallback.candidateName,
-    headline: (pick(src, "headline", "title", "current_role") as string | undefined) ??
-      fallback.headline,
+    headline:
+      (pick(src, "headline", "title", "current_role") as string | undefined) ?? fallback.headline,
     careerLevel: {
       label: levelLabel ?? fallback.careerLevel.label,
       tier:
@@ -111,11 +111,9 @@ export function mergeSnapshot(fallback: SnapshotData, raw: unknown): SnapshotDat
     completeness:
       asNumber(pick(src, "completeness", "resume_completeness", "completeness_score")) ??
       fallback.completeness,
-    confidence:
-      asNumber(pick(src, "confidence", "confidence_score")) ?? fallback.confidence,
+    confidence: asNumber(pick(src, "confidence", "confidence_score")) ?? fallback.confidence,
     topSkills:
-      asStringArray(pick(src, "top_skills", "skills", "extracted_skills")) ??
-      fallback.topSkills,
+      asStringArray(pick(src, "top_skills", "skills", "extracted_skills")) ?? fallback.topSkills,
     missingSkills:
       asStringArray(pick(src, "missing_skills", "skill_gaps")) ?? fallback.missingSkills,
     recommendedRoles:

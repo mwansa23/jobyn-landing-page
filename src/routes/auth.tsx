@@ -5,10 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { login, register } from "@/lib/auth";
-import { ApiError } from "@/lib/api";
+import { setStoredToken, setStoredUser, type CurrentUser } from "@/lib/auth";
+import { ApiError, apiRequest } from "@/lib/api";
+
+type TokenResponse = {
+  access_token: string;
+  token_type?: string;
+};
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -33,8 +39,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,15 +49,34 @@ function AuthPage() {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "register") {
-        await register({ email, password, full_name: fullName });
-      } else {
-        await login({ email, password });
+      const credentials = new URLSearchParams({
+        username: email.trim(),
+        password,
+      });
+      const tokenResponse = await apiRequest<TokenResponse>("/api/v1/auth/login", {
+        method: "POST",
+        body: credentials,
+        auth: false,
+      });
+      if (!tokenResponse.access_token) {
+        throw new ApiError("The server did not return an access token.", 502);
       }
+      setStoredToken(tokenResponse.access_token);
+
+      const user = await apiRequest<CurrentUser>("/api/v1/auth/me", {
+        method: "GET",
+        auth: false,
+        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+      });
+      setStoredUser(user);
       navigate({ to: "/upload" });
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+        err instanceof ApiError
+          ? err.status === 401
+            ? "Invalid username or password. Please try again."
+            : err.message
+          : "Something went wrong. Please try again.",
       );
     } finally {
       setBusy(false);
@@ -69,39 +92,22 @@ function AuthPage() {
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary">
               <Sparkles className="h-3.5 w-3.5" /> Jobyn AI
             </div>
-            <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">
-              {mode === "login" ? "Welcome back" : "Create your account"}
-            </h1>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">Welcome back</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {mode === "login"
-                ? "Sign in to continue your AI career analysis."
-                : "Register to upload your CV and get AI career intelligence."}
+              Sign in to continue your AI career analysis.
             </p>
           </div>
 
           <Card className="p-6">
             <form onSubmit={submit} className="space-y-4">
-              {mode === "register" && (
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full name</Label>
-                  <Input
-                    id="full_name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    autoComplete="name"
-                    required
-                  />
-                </div>
-              )}
-
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Username or email</Label>
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  autoComplete="username"
                   required
                 />
               </div>
@@ -113,19 +119,16 @@ function AuthPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  autoComplete="current-password"
                   required
                 />
               </div>
 
               {error && (
-                <div
-                  role="alert"
-                  className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
-                >
+                <Alert variant="destructive" role="alert" className="flex items-start gap-3">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
 
               <Button type="submit" className="w-full" disabled={busy}>
@@ -133,27 +136,11 @@ function AuthPage() {
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please wait…
                   </>
-                ) : mode === "login" ? (
-                  "Sign in"
                 ) : (
-                  "Create account"
+                  "Sign in"
                 )}
               </Button>
             </form>
-
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              {mode === "login" ? "New to Jobyn AI?" : "Already have an account?"}{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === "login" ? "register" : "login");
-                  setError(null);
-                }}
-                className="font-medium text-primary hover:underline"
-              >
-                {mode === "login" ? "Create an account" : "Sign in"}
-              </button>
-            </p>
           </Card>
         </section>
       </main>

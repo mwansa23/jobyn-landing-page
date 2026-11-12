@@ -9,7 +9,13 @@ import {
   type UserCredential,
 } from "firebase/auth";
 
-import { ApiError, apiRequest, clearStoredToken, getStoredToken } from "./api";
+import {
+  ApiError,
+  apiRequest,
+  clearStoredToken,
+  getStoredToken,
+  setStoredToken as storeApiToken,
+} from "./api";
 import {
   getCurrentFirebaseIdToken,
   getFirebaseAuth,
@@ -118,7 +124,7 @@ export function logout(): void {
   clearStoredToken();
   if (typeof window !== "undefined") {
     try {
-      window.sessionStorage.removeItem("jobyn.resume_result");
+      window.sessionStorage.removeItem("latest_resume_profile");
     } catch {
       /* storage unavailable */
     }
@@ -133,12 +139,27 @@ export function isAuthenticated(): boolean {
 export type CurrentUser = {
   id: string;
   email: string;
-  full_name?: string | null;
-  is_active?: boolean;
-  is_verified?: boolean;
-  role?: string;
-  created_at?: string;
+  full_name: string | null;
+  is_active: boolean;
+  is_verified: boolean;
+  role: "admin" | "user";
+  created_at: string;
 };
+
+const USER_KEY = "jobyn.user";
+
+export function setStoredToken(token: string): void {
+  storeApiToken(token);
+}
+
+export function setStoredUser(user: CurrentUser): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 /** GET /api/v1/auth/me — uses the current Firebase ID token when available. */
 export async function fetchCurrentUser(): Promise<CurrentUser> {

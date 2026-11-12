@@ -34,8 +34,8 @@ export function Footer() {
               <span className="text-lg font-bold tracking-tight">Jobyn AI</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-              AI-powered career tools that help you land your next role faster.
-              Upload your CV and let Jobyn do the rest.
+              AI-powered career tools that help you land your next role faster. Upload your CV and
+              let Jobyn do the rest.
             </p>
             <div className="mt-6 flex items-center gap-3">
               <a
@@ -121,9 +121,7 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Jobyn AI. All rights reserved.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Built for ambitious job seekers.
-          </p>
+          <p className="text-sm text-muted-foreground">Built for ambitious job seekers.</p>
         </div>
       </div>
     </footer>

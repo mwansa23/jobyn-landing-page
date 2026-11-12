@@ -4,6 +4,7 @@ import {
   getAuth,
   onAuthStateChanged,
   setPersistence,
+  connectAuthEmulator,
   type Auth,
   type User,
 } from "firebase/auth";
@@ -46,6 +47,15 @@ let authStateReady: Promise<User | null> | null = null;
 export function getFirebaseAuth(): Auth {
   if (!authInstance) {
     authInstance = getAuth(getFirebaseApp());
+    const emulatorHost = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST;
+    if (
+      import.meta.env.DEV &&
+      import.meta.env.MODE === "test" &&
+      firebaseConfig.projectId?.startsWith("demo-") &&
+      emulatorHost === "127.0.0.1:9099"
+    ) {
+      connectAuthEmulator(authInstance, `http://${emulatorHost}`, { disableWarnings: true });
+    }
     persistenceReady = setPersistence(authInstance, browserLocalPersistence);
   }
   return authInstance;

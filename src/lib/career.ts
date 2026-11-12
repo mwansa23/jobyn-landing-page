@@ -153,7 +153,9 @@ function mapRoadmap(value: unknown): RoadmapStep[] {
       const stage = str(pick(o, "stage", "timeline", "phase", "period"), "Next step");
       const role = str(pick(o, "role", "title", "position", "target_role"), "");
       const actions = arr(pick(o, "actions", "steps", "tasks", "milestones"))
-        .map((a) => (typeof a === "string" ? a : str(pick(obj(a), "action", "text", "description", "step"))))
+        .map((a) =>
+          typeof a === "string" ? a : str(pick(obj(a), "action", "text", "description", "step")),
+        )
         .filter(Boolean);
       return { stage, role, actions };
     })
@@ -252,27 +254,50 @@ function mapReasoning(raw: unknown): CareerCoachData["reasoning"] {
     reasoning: arr(pick(o, "reasoning", "reasoning_steps", "steps", "logic"))
       .map((s) => (typeof s === "string" ? s : str(pick(obj(s), "text", "description", "step"))))
       .filter(Boolean),
-    explanations: mapExplanations(pick(o, "explanations", "recommendation_explanations", "matches")),
+    explanations: mapExplanations(
+      pick(o, "explanations", "recommendation_explanations", "matches"),
+    ),
   };
 }
 
 export function mapCareerCoach(raw: unknown): CareerCoachData {
   const src = unwrap(raw) ?? {};
 
-  const strengths = mapStrengths(pick(src, "strengths", "strength_areas", "professional_strengths"));
-  const skillGaps = mapSkillGaps(pick(src, "skill_gaps", "skill_gaps_analysis", "missing_skills", "skills_to_develop"));
-  const roadmap = mapRoadmap(pick(src, "roadmap", "career_path", "career_roadmap", "career_pathway", "stages"));
+  const strengths = mapStrengths(
+    pick(src, "strengths", "strength_areas", "professional_strengths"),
+  );
+  const skillGaps = mapSkillGaps(
+    pick(src, "skill_gaps", "skill_gaps_analysis", "missing_skills", "skills_to_develop"),
+  );
+  const roadmap = mapRoadmap(
+    pick(src, "roadmap", "career_path", "career_roadmap", "career_pathway", "stages"),
+  );
   const actionPlan = mapActionPlan(
-    pick(src, "action_plan", "action_items", "job_search_strategy", "preparation_plan", "next_steps"),
+    pick(
+      src,
+      "action_plan",
+      "action_items",
+      "job_search_strategy",
+      "preparation_plan",
+      "next_steps",
+    ),
   );
   const interviewTopics = mapInterviewTopics(
     pick(src, "interview_topics", "interview_questions", "interview_prep", "preparation_topics"),
   );
   const recommendations = mapRecommendations(
-    pick(src, "recommendations", "recommended_roles", "recommended_paths", "recommended_career_paths"),
+    pick(
+      src,
+      "recommendations",
+      "recommended_roles",
+      "recommended_paths",
+      "recommended_career_paths",
+    ),
   );
 
-  const currentSkills = arr(pick(src, "current_skills", "skills", "technical_skills", "core_skills"))
+  const currentSkills = arr(
+    pick(src, "current_skills", "skills", "technical_skills", "core_skills"),
+  )
     .map((s) => (typeof s === "string" ? s : str(pick(obj(s), "name", "skill", "title"))))
     .filter(Boolean);
 

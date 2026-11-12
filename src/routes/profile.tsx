@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   Briefcase,
@@ -22,20 +22,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ApiError } from "@/lib/api";
+import { getStoredResumeResult } from "@/lib/resume";
 import {
   fetchCandidateProfile,
   getCandidateId,
+  hasCandidateProfileData,
+  mapCandidateProfile,
   type CandidateProfile,
 } from "@/lib/candidate-profile";
-
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
       { title: "Candidate Profile — Jobyn AI" },
-      { name: "description", content: "AI-generated candidate profile with extracted skills, education, work experience, recommended roles, and completion score." },
+      {
+        name: "description",
+        content:
+          "AI-generated candidate profile with extracted skills, education, work experience, recommended roles, and completion score.",
+      },
       { property: "og:title", content: "Candidate Profile — Jobyn AI" },
-      { property: "og:description", content: "See your extracted profile: skills, experience, education and recommended job titles." },
+      {
+        property: "og:description",
+        content:
+          "See your extracted profile: skills, experience, education and recommended job titles.",
+      },
       { property: "og:type", content: "profile" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -52,39 +62,28 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-const EMPTY_PROFILE: CandidateProfile = {
-  name: "Candidate",
-  headline: "Professional",
-  location: "",
-  email: "",
-  phone: "",
-  summary: "",
-  completion: { score: 0, sections: [] },
-  skills: [],
-  experience: [],
-  education: [],
-  recommendedRoles: [],
-};
-
 function ProfilePage() {
-  const [candidate, setCandidate] = useState<CandidateProfile>(EMPTY_PROFILE);
+  const [candidate, setCandidate] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
+    const stored = getStoredResumeResult<unknown>();
+    if (stored) {
+      const storedProfile = mapCandidateProfile(stored);
+      if (hasCandidateProfileData(storedProfile)) setCandidate(storedProfile);
+    }
+
     const candidateId = getCandidateId();
     if (!candidateId) {
       setLoading(false);
-      setError(
-        "No candidate profile found yet. Upload your CV to generate your profile.",
-      );
       return;
     }
     fetchCandidateProfile(candidateId)
       .then((data) => {
         if (!active) return;
-        setCandidate(data);
+        if (hasCandidateProfileData(data)) setCandidate(data);
         setError(null);
       })
       .catch((err: unknown) => {
@@ -101,9 +100,8 @@ function ProfilePage() {
     };
   }, []);
 
-  const { completion } = candidate;
-  const done = completion.sections.filter((s) => s.done).length;
-
+  const completion = candidate?.completion;
+  const done = completion?.sections.filter((s) => s.done).length ?? 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -125,170 +123,233 @@ function ProfilePage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          {/* Header */}
-
-          <Card className="mb-8 p-6 sm:p-8">
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-              <Avatar className="h-20 w-20 border-2 border-primary/20">
-                <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
-                  {initials(candidate.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                  {candidate.name}
-                </h1>
-                <p className="mt-1 text-lg text-muted-foreground">{candidate.headline}</p>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                  {candidate.location && (
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4" /> {candidate.location}
-                    </span>
-                  )}
-                  {candidate.email && (
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="h-4 w-4" /> {candidate.email}
-                    </span>
-                  )}
-                  {candidate.phone && (
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="h-4 w-4" /> {candidate.phone}
-                    </span>
-                  )}
-                </div>
+          {!loading && !candidate && (
+            <Card className="mx-auto max-w-xl p-8 text-center sm:p-12">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary">
+                <Briefcase className="h-6 w-6" />
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline">Edit profile</Button>
-                <Button>Find jobs</Button>
-              </div>
-            </div>
-            <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-              {candidate.summary}
-            </p>
-          </Card>
+              <h1 className="mt-5 text-2xl font-bold tracking-tight text-foreground">
+                No candidate profile yet
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Upload your PDF or DOCX resume to generate a profile from its parsed data.
+              </p>
+              <Button asChild className="mt-6">
+                <Link to="/upload">Upload a resume</Link>
+              </Button>
+            </Card>
+          )}
 
-          <div className="grid gap-8 lg:grid-cols-3">
-            {/* Main column */}
-            <div className="space-y-8 lg:col-span-2">
-              {/* Skills */}
-              <Card className="p-6 sm:p-8">
-                <SectionHeader icon={Sparkles} title="Extracted Skills" />
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {candidate.skills.map((skill) => (
-                    <Badge
-                      key={skill.name}
-                      variant="secondary"
-                      className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary hover:bg-primary/15"
-                    >
-                      {skill.name}
-                      <span className="ml-2 text-xs text-primary/70">{skill.level}</span>
-                    </Badge>
-                  ))}
-                </div>
-              </Card>
-
-              {/* Experience */}
-              <Card className="p-6 sm:p-8">
-                <SectionHeader icon={Briefcase} title="Work Experience" />
-                <ol className="mt-6 space-y-6 border-l border-border pl-6">
-                  {candidate.experience.map((job) => (
-                    <li key={job.role + job.company} className="relative">
-                      <span className="absolute -left-[29px] top-1.5 h-3 w-3 rounded-full border-2 border-background bg-primary" />
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 className="text-base font-semibold text-foreground">
-                          {job.role} · <span className="text-primary">{job.company}</span>
-                        </h3>
-                        <span className="text-xs text-muted-foreground">{job.period}</span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{job.location}</p>
-                      <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
-                        {job.bullets.map((b) => (
-                          <li key={b}>{b}</li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
-
-              {/* Education */}
-              <Card className="p-6 sm:p-8">
-                <SectionHeader icon={GraduationCap} title="Education" />
-                <div className="mt-5 space-y-5">
-                  {candidate.education.map((ed) => (
-                    <div key={ed.degree} className="rounded-lg border bg-muted/30 p-4">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 className="text-sm font-semibold text-foreground">{ed.degree}</h3>
-                        <span className="text-xs text-muted-foreground">{ed.period}</span>
-                      </div>
-                      <p className="mt-0.5 text-sm text-primary">{ed.school}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{ed.detail}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-8">
-              {/* Completion */}
-              <Card className="p-6">
-                <SectionHeader icon={Award} title="Profile Completion" />
-                <div className="mt-5 flex items-center gap-4">
-                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-xl font-bold text-primary">{completion.score}%</span>
-                  </div>
+          {candidate && (
+            <>
+              <Card className="mb-8 p-6 sm:p-8">
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                  {candidate.name && (
+                    <Avatar className="h-20 w-20 border-2 border-primary/20">
+                      <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
+                        {initials(candidate.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                   <div className="flex-1">
-                    <Progress value={completion.score} className="h-2" />
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {done} of {completion.sections.length} sections complete
-                    </p>
+                    {candidate.name && (
+                      <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                        {candidate.name}
+                      </h1>
+                    )}
+                    {candidate.headline && (
+                      <p className="mt-1 text-lg text-muted-foreground">{candidate.headline}</p>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                      {candidate.location && (
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="h-4 w-4" /> {candidate.location}
+                        </span>
+                      )}
+                      {candidate.email && (
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="h-4 w-4" /> {candidate.email}
+                        </span>
+                      )}
+                      {candidate.phone && (
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="h-4 w-4" /> {candidate.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button asChild>
+                      <Link to="/matches">Find jobs</Link>
+                    </Button>
                   </div>
                 </div>
-                <ul className="mt-5 space-y-2">
-                  {completion.sections.map((s) => (
-                    <li
-                      key={s.label}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className={s.done ? "text-foreground" : "text-muted-foreground"}>
-                        {s.label}
-                      </span>
-                      {s.done ? (
-                        <span className="text-xs font-medium text-primary">Done</span>
-                      ) : (
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                          Add
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                {candidate.summary && (
+                  <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+                    {candidate.summary}
+                  </p>
+                )}
               </Card>
 
-              {/* Recommended roles */}
-              <Card className="p-6">
-                <SectionHeader icon={Target} title="Recommended Roles" />
-                <ul className="mt-5 space-y-3">
-                  {candidate.recommendedRoles.map((role) => (
-                    <li
-                      key={role.title}
-                      className="rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="text-sm font-medium text-foreground">{role.title}</span>
-                        <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                          <TrendingUp className="h-3 w-3" />
-                          {role.match}%
+              <div className="grid gap-8 lg:grid-cols-3">
+                {/* Main column */}
+                <div className="space-y-8 lg:col-span-2">
+                  {/* Skills */}
+                  {candidate.skills.length > 0 && (
+                    <Card className="p-6 sm:p-8">
+                      <SectionHeader icon={Sparkles} title="Extracted Skills" />
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {candidate.skills.map((skill) => (
+                          <Badge
+                            key={skill.name}
+                            variant="secondary"
+                            className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary hover:bg-primary/15"
+                          >
+                            {skill.name}
+                            {skill.level && (
+                              <span className="ml-2 text-xs text-primary/70">{skill.level}</span>
+                            )}
+                          </Badge>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Experience */}
+                  {candidate.experience.length > 0 && (
+                    <Card className="p-6 sm:p-8">
+                      <SectionHeader icon={Briefcase} title="Work Experience" />
+                      <ol className="mt-6 space-y-6 border-l border-border pl-6">
+                        {candidate.experience.map((job) => (
+                          <li key={job.role + job.company} className="relative">
+                            <span className="absolute -left-[29px] top-1.5 h-3 w-3 rounded-full border-2 border-background bg-primary" />
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              {(job.role || job.company) && (
+                                <h3 className="text-base font-semibold text-foreground">
+                                  {job.role}
+                                  {job.role && job.company && " · "}
+                                  {job.company && (
+                                    <span className="text-primary">{job.company}</span>
+                                  )}
+                                </h3>
+                              )}
+                              {job.period && (
+                                <span className="text-xs text-muted-foreground">{job.period}</span>
+                              )}
+                            </div>
+                            {job.location && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">{job.location}</p>
+                            )}
+                            {job.bullets.length > 0 && (
+                              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+                                {job.bullets.map((b) => (
+                                  <li key={b}>{b}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    </Card>
+                  )}
+
+                  {/* Education */}
+                  {candidate.education.length > 0 && (
+                    <Card className="p-6 sm:p-8">
+                      <SectionHeader icon={GraduationCap} title="Education" />
+                      <div className="mt-5 space-y-5">
+                        {candidate.education.map((ed) => (
+                          <div key={ed.degree} className="rounded-lg border bg-muted/30 p-4">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              {ed.degree && (
+                                <h3 className="text-sm font-semibold text-foreground">
+                                  {ed.degree}
+                                </h3>
+                              )}
+                              {ed.period && (
+                                <span className="text-xs text-muted-foreground">{ed.period}</span>
+                              )}
+                            </div>
+                            {ed.school && (
+                              <p className="mt-0.5 text-sm text-primary">{ed.school}</p>
+                            )}
+                            {ed.detail && (
+                              <p className="mt-1 text-xs text-muted-foreground">{ed.detail}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-8">
+                  {/* Completion */}
+                  <Card className="p-6">
+                    <SectionHeader icon={Award} title="Profile Completion" />
+                    <div className="mt-5 flex items-center gap-4">
+                      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <span className="text-xl font-bold text-primary">
+                          {candidate.completion.score}%
                         </span>
                       </div>
-                      <Progress value={role.match} className="mt-2 h-1.5" />
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </div>
-          </div>
+                      <div className="flex-1">
+                        <Progress value={candidate.completion.score} className="h-2" />
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {done} of {candidate.completion.sections.length} sections complete
+                        </p>
+                      </div>
+                    </div>
+                    <ul className="mt-5 space-y-2">
+                      {candidate.completion.sections.map((s) => (
+                        <li key={s.label} className="flex items-center justify-between text-sm">
+                          <span className={s.done ? "text-foreground" : "text-muted-foreground"}>
+                            {s.label}
+                          </span>
+                          {s.done ? (
+                            <span className="text-xs font-medium text-primary">Done</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Not found</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+
+                  {/* Recommended roles */}
+                  {candidate.recommendedRoles.length > 0 && (
+                    <Card className="p-6">
+                      <SectionHeader icon={Target} title="Recommended Roles" />
+                      <ul className="mt-5 space-y-3">
+                        {candidate.recommendedRoles.map((role) => (
+                          <li
+                            key={role.title}
+                            className="rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-sm font-medium text-foreground">
+                                {role.title}
+                              </span>
+                              {role.match > 0 && (
+                                <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                  <TrendingUp className="h-3 w-3" />
+                                  {role.match}%
+                                </span>
+                              )}
+                            </div>
+                            {role.match > 0 && (
+                              <Progress value={role.match} className="mt-2 h-1.5" />
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </main>
       <Footer />

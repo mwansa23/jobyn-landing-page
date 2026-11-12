@@ -21,9 +21,16 @@ export const Route = createFileRoute("/matches")({
   head: () => ({
     meta: [
       { title: "Job Matches — Jobyn AI" },
-      { name: "description", content: "AI-ranked job matches with explanations: matching skills, missing skills, and why each role fits your CV." },
+      {
+        name: "description",
+        content:
+          "AI-ranked job matches with explanations: matching skills, missing skills, and why each role fits your CV.",
+      },
       { property: "og:title", content: "Job Matches — Jobyn AI" },
-      { property: "og:description", content: "See personalized job matches with AI explanations for each recommendation." },
+      {
+        property: "og:description",
+        content: "See personalized job matches with AI explanations for each recommendation.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -96,8 +103,8 @@ function MatchesPage() {
               Roles hand-picked for your profile
             </h1>
             <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
-              Each match is scored and explained. See exactly which skills line
-              up — and which ones would take you to the next level.
+              Each match is scored and explained. See exactly which skills line up — and which ones
+              would take you to the next level.
             </p>
           </div>
         </section>
@@ -115,9 +122,7 @@ function MatchesPage() {
                       <Building2 className="h-6 w-6" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold text-foreground">
-                        {job.title}
-                      </h2>
+                      <h2 className="text-xl font-semibold text-foreground">{job.title}</h2>
                       <p className="mt-0.5 text-sm text-primary">{job.company}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -150,9 +155,7 @@ function MatchesPage() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                         Why this job?
                       </p>
-                      <p className="mt-1 text-sm text-foreground">
-                        {job.explanation}
-                      </p>
+                      <p className="mt-1 text-sm text-foreground">{job.explanation}</p>
                     </div>
                   </div>
                 </div>
@@ -206,8 +209,8 @@ function MatchesPage() {
           <div className="mt-10 flex items-start gap-3 rounded-xl border border-border/70 bg-surface/60 p-5 text-sm text-muted-foreground">
             <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <p>
-              Matches are AI-generated from your CV and public job data. We
-              recommend a quick human review before applying to any role.
+              Matches are AI-generated from your CV and public job data. We recommend a quick human
+              review before applying to any role.
             </p>
           </div>
         </section>

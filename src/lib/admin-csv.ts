@@ -1,7 +1,6 @@
 /** Admin CSV vacancy import — thin client over the real FastAPI endpoints. */
 import { apiRequest, ApiError } from "./api";
-
-export type CurrentUser = { id?: unknown; email?: string; full_name?: string; role?: string };
+import { fetchCurrentUser, type CurrentUser } from "./auth";
 
 export type CsvRowError = { row: number; field: string; message: string };
 export type CsvPreviewRecord = {
@@ -59,19 +58,29 @@ export const MAX_CSV_BYTES = 5 * 1024 * 1024;
 const BASE = "/api/v1/admin/jobs/csv";
 
 export function getMe() {
-  return apiRequest<CurrentUser>("/api/v1/auth/me");
+  return fetchCurrentUser();
 }
 
-export function previewCsv(file: File) {
+export function previewCsv(file: File, columnMapping?: Record<string, string>) {
   const fd = new FormData();
   fd.append("file", file);
+  if (columnMapping && Object.keys(columnMapping).length > 0) {
+    fd.append("column_mapping", JSON.stringify(columnMapping));
+  }
   return apiRequest<CsvPreview>(`${BASE}/preview`, { method: "POST", formData: fd });
 }
 
-export function importCsv(file: File, confirmationToken: string) {
+export function importCsv(
+  file: File,
+  confirmationToken: string,
+  columnMapping?: Record<string, string>,
+) {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("confirmation_token", confirmationToken);
+  if (columnMapping && Object.keys(columnMapping).length > 0) {
+    fd.append("column_mapping", JSON.stringify(columnMapping));
+  }
   return apiRequest<CsvImportResult>(`${BASE}/import`, { method: "POST", formData: fd });
 }
 

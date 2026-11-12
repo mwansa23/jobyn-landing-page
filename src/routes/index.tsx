@@ -77,13 +77,11 @@ function Hero() {
               <span>AI Career Intelligence Platform</span>
             </div>
             <h1 className="mt-6 text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-              Discover how AI sees{" "}
-              <span className="text-primary">your career</span>
+              Discover how AI sees <span className="text-primary">your career</span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground">
-              Upload your CV to receive a personalized career profile,
-              intelligent job matches, and application-ready documents — in
-              under a minute.
+              Upload your CV to receive a personalized career profile, intelligent job matches, and
+              application-ready documents — in under a minute.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
@@ -94,7 +92,8 @@ function Hero() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/" hash="features"
+                to="/"
+                hash="features"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-6 py-3 text-base font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 Explore features
@@ -102,10 +101,7 @@ function Hero() {
             </div>
             <ul className="mt-8 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6">
               {benefits.slice(0, 3).map((benefit) => (
-                <li
-                  key={benefit}
-                  className="flex items-center gap-2 text-sm text-muted-foreground"
-                >
+                <li key={benefit} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Check className="h-4 w-4 text-primary" />
                   {benefit}
                 </li>
@@ -147,8 +143,8 @@ function UploadSection() {
                 Upload Your CV
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
-                Drag and drop your resume or click to browse. Jobyn AI will
-                analyze it and unlock your personalized career insights.
+                Drag and drop your resume or click to browse. Jobyn AI will analyze it and unlock
+                your personalized career insights.
               </p>
 
               <div
@@ -190,8 +186,7 @@ function UploadSection() {
               </div>
 
               <p className="mt-6 text-sm text-muted-foreground">
-                No account required to preview. Your data is processed securely
-                and never shared.
+                No account required to preview. Your data is processed securely and never shared.
               </p>
             </div>
           </div>
@@ -214,8 +209,7 @@ function Features() {
             Everything you need to get hired
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Three AI tools designed to help you stand out, save time, and apply
-            with confidence.
+            Three AI tools designed to help you stand out, save time, and apply with confidence.
           </p>
         </div>
 
@@ -228,12 +222,8 @@ function Features() {
               <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary transition-colors">
                 <feature.icon className="h-6 w-6" />
               </div>
-              <h3 className="mt-5 text-xl font-semibold text-foreground">
-                {feature.title}
-              </h3>
-              <p className="mt-3 text-base text-muted-foreground">
-                {feature.description}
-              </p>
+              <h3 className="mt-5 text-xl font-semibold text-foreground">{feature.title}</h3>
+              <p className="mt-3 text-base text-muted-foreground">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -252,8 +242,8 @@ function TrustSection() {
               Built for serious job seekers
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              We combine modern AI with recruitment expertise to give you an edge
-              at every stage of the application process.
+              We combine modern AI with recruitment expertise to give you an edge at every stage of
+              the application process.
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               {[
@@ -262,14 +252,9 @@ function TrustSection() {
                 { label: "Users assisted", value: "50K+" },
                 { label: "Documents analyzed", value: "200K+" },
               ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-xl border border-border bg-surface p-5"
-                >
+                <div key={stat.label} className="rounded-xl border border-border bg-surface p-5">
                   <p className="text-3xl font-bold text-primary">{stat.value}</p>
-                  <p className="mt-1 text-sm font-medium text-muted-foreground">
-                    {stat.label}
-                  </p>
+                  <p className="mt-1 text-sm font-medium text-muted-foreground">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -280,14 +265,11 @@ function TrustSection() {
               <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-primary">
                 <Shield className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">
-                Privacy-first by design
-              </h3>
+              <h3 className="text-lg font-semibold text-foreground">Privacy-first by design</h3>
             </div>
             <p className="mt-4 text-muted-foreground">
-              Your CV and personal data are encrypted at rest and in transit. We
-              never sell your information, and you can delete your documents at
-              any time.
+              Your CV and personal data are encrypted at rest and in transit. We never sell your
+              information, and you can delete your documents at any time.
             </p>
             <ul className="mt-6 space-y-3">
               {benefits.map((benefit) => (
@@ -314,8 +296,7 @@ function FinalCTA() {
           Ready to accelerate your job search?
         </h2>
         <p className="mt-4 text-lg text-muted-foreground">
-          Join thousands of job seekers using Jobyn AI to get noticed and hired
-          faster.
+          Join thousands of job seekers using Jobyn AI to get noticed and hired faster.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Link
@@ -326,7 +307,8 @@ function FinalCTA() {
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            to="/" hash="features"
+            to="/"
+            hash="features"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-6 py-3 text-base font-semibold text-foreground transition-colors hover:bg-accent"
           >
             See how it works

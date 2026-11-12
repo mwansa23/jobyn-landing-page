@@ -117,8 +117,13 @@ export async function apiRequest<T = unknown>(
     // Never set Content-Type for FormData — the browser adds the boundary.
     payload = formData;
   } else if (body !== undefined) {
-    finalHeaders["Content-Type"] = "application/json";
-    payload = JSON.stringify(body);
+    if (body instanceof URLSearchParams) {
+      finalHeaders["Content-Type"] = "application/x-www-form-urlencoded";
+      payload = body.toString();
+    } else {
+      finalHeaders["Content-Type"] = "application/json";
+      payload = JSON.stringify(body);
+    }
   }
 
   let response: Response;

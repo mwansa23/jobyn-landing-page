@@ -76,13 +76,7 @@ function ScoreRing({ value }: { value: number }) {
   return (
     <div className="relative h-36 w-36">
       <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-        <circle
-          cx="64"
-          cy="64"
-          r={radius}
-          className="fill-none stroke-muted"
-          strokeWidth="10"
-        />
+        <circle cx="64" cy="64" r={radius} className="fill-none stroke-muted" strokeWidth="10" />
         <circle
           cx="64"
           cy="64"
@@ -116,15 +110,11 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-6">
-      <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-        {eyebrow}
-      </p>
+      <p className="text-xs font-semibold uppercase tracking-widest text-primary">{eyebrow}</p>
       <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
         {title}
       </h2>
-      {description && (
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>
-      )}
+      {description && <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>}
     </div>
   );
 }
@@ -227,8 +217,8 @@ function CoachPage() {
               Your AI-guided career game plan
             </h1>
             <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-              A personalized coach that reads your resume, spots opportunities, and
-              tells you exactly what to do next.
+              A personalized coach that reads your resume, spots opportunities, and tells you
+              exactly what to do next.
             </p>
           </div>
         </section>
@@ -255,9 +245,7 @@ function CoachPage() {
                       Career intelligence summary
                     </span>
                   </div>
-                  <p className="mt-4 text-lg leading-relaxed text-foreground">
-                    {summary}
-                  </p>
+                  <p className="mt-4 text-lg leading-relaxed text-foreground">{summary}</p>
                   <div className="mt-6 flex flex-wrap gap-2">
                     <Badge variant="secondary" className="gap-1">
                       <Briefcase className="h-3 w-3" />
@@ -335,9 +323,7 @@ function CoachPage() {
                               <p className="mt-0.5 text-sm font-semibold text-foreground">
                                 {e.value}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {e.detail}
-                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">{e.detail}</p>
                             </div>
                           </li>
                         );
@@ -359,17 +345,15 @@ function CoachPage() {
                           <span className="absolute -left-[29px] grid h-6 w-6 place-items-center rounded-full border border-primary/30 bg-background text-[11px] font-semibold text-primary">
                             {i + 1}
                           </span>
-                          <p className="text-sm leading-relaxed text-foreground">
-                            {step}
-                          </p>
+                          <p className="text-sm leading-relaxed text-foreground">{step}</p>
                         </li>
                       ))}
                     </ol>
                     <div className="mt-5 flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-3">
                       <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                       <p className="text-xs text-muted-foreground">
-                        Reasoning steps are generated from your resume signals and
-                        current job market patterns.
+                        Reasoning steps are generated from your resume signals and current job
+                        market patterns.
                       </p>
                     </div>
                   </div>
@@ -394,20 +378,12 @@ function CoachPage() {
                               Career recommendation
                             </p>
                           </div>
-                          <p className="mt-1 text-sm font-semibold text-foreground">
-                            {e.role}
-                          </p>
-                          <p className="mt-2 text-xs font-medium text-muted-foreground">
-                            Why:
-                          </p>
+                          <p className="mt-1 text-sm font-semibold text-foreground">{e.role}</p>
+                          <p className="mt-2 text-xs font-medium text-muted-foreground">Why:</p>
                           <p className="mt-0.5 text-sm text-foreground">{e.why}</p>
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             {e.badges.map((b) => (
-                              <Badge
-                                key={b}
-                                variant="secondary"
-                                className="gap-1 text-xs"
-                              >
+                              <Badge key={b} variant="secondary" className="gap-1 text-xs">
                                 <CheckCircle2 className="h-3 w-3 text-primary" />
                                 {b}
                               </Badge>
@@ -436,16 +412,10 @@ function CoachPage() {
                         <Award className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-semibold text-foreground">
-                          {s.title}
-                        </h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {s.explanation}
-                        </p>
+                        <h3 className="text-base font-semibold text-foreground">{s.title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{s.explanation}</p>
                         <p className="mt-3 rounded-md bg-muted/60 p-3 text-xs italic text-muted-foreground">
-                          <span className="font-medium not-italic text-foreground">
-                            Evidence:
-                          </span>{" "}
+                          <span className="font-medium not-italic text-foreground">Evidence:</span>{" "}
                           {s.evidence}
                         </p>
                       </div>
@@ -500,12 +470,10 @@ function CoachPage() {
                           </Badge>
                         </div>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          <span className="font-medium text-foreground">Why:</span>{" "}
-                          {g.why}
+                          <span className="font-medium text-foreground">Why:</span> {g.why}
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          <span className="font-medium text-foreground">Impact:</span>{" "}
-                          {g.impact}
+                          <span className="font-medium text-foreground">Impact:</span> {g.impact}
                         </p>
                       </li>
                     ))}
@@ -523,19 +491,14 @@ function CoachPage() {
               />
               <div className="grid gap-4 md:grid-cols-3">
                 {roadmap.map((step, idx) => (
-                  <Card
-                    key={step.stage}
-                    className="relative p-5 transition-shadow hover:shadow-md"
-                  >
+                  <Card key={step.stage} className="relative p-5 transition-shadow hover:shadow-md">
                     <div className="flex items-center gap-2 text-primary">
                       <Compass className="h-4 w-4" />
                       <span className="text-xs font-semibold uppercase tracking-wider">
                         {step.stage}
                       </span>
                     </div>
-                    <h3 className="mt-2 text-lg font-semibold text-foreground">
-                      {step.role}
-                    </h3>
+                    <h3 className="mt-2 text-lg font-semibold text-foreground">{step.role}</h3>
                     <ul className="mt-4 space-y-2">
                       {step.actions.map((a) => (
                         <li
@@ -571,9 +534,7 @@ function CoachPage() {
                     Your next 30 days
                   </h3>
                 </div>
-                <h4 className="mt-1 text-xl font-bold text-foreground">
-                  Personalized action plan
-                </h4>
+                <h4 className="mt-1 text-xl font-bold text-foreground">Personalized action plan</h4>
                 <ul className="mt-5 space-y-3">
                   {action_plan.map((task, i) => (
                     <li
@@ -616,8 +577,8 @@ function CoachPage() {
                 <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
                   <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <p className="text-xs text-muted-foreground">
-                    Tip: rehearse 2–3 concrete stories per topic using the STAR
-                    method (Situation, Task, Action, Result).
+                    Tip: rehearse 2–3 concrete stories per topic using the STAR method (Situation,
+                    Task, Action, Result).
                   </p>
                 </div>
               </Card>
@@ -644,9 +605,7 @@ function CoachPage() {
                             Match {r.match}%
                           </span>
                         </div>
-                        <h3 className="mt-1 text-lg font-semibold text-foreground">
-                          {r.role}
-                        </h3>
+                        <h3 className="mt-1 text-lg font-semibold text-foreground">{r.role}</h3>
                       </div>
                       <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
                         <Rocket className="h-5 w-5" />
@@ -667,8 +626,7 @@ function CoachPage() {
                       </div>
                     </div>
                     <div className="mt-4 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Improve:</span>{" "}
-                      {r.improve}
+                      <span className="font-medium text-foreground">Improve:</span> {r.improve}
                     </div>
                   </Card>
                 ))}
@@ -684,8 +642,8 @@ function CoachPage() {
                 Ready to act on your plan?
               </h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-                See tailored job matches or generate a cover letter aligned with
-                your strengths and roadmap.
+                See tailored job matches or generate a cover letter aligned with your strengths and
+                roadmap.
               </p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <Link
