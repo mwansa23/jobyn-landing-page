@@ -1,4 +1,5 @@
-import { ApiError, apiRequest } from "./api";
+import { API_BASE_URL, ApiError, apiRequest } from "./api";
+import { getCurrentAccessToken } from "./supabase";
 
 export type AdminJob = {
   id: string;
@@ -86,6 +87,9 @@ export async function fetchAdminApplications(limit = 50): Promise<AdminApplicati
 }
 
 export async function exportAdminCsv(): Promise<Response> {
+  const token = await getCurrentAccessToken();
+  if (!token) throw new ApiError("Please sign in to export admin data.", 401);
+
   const urls = [
     "/api/v1/admin/jobs/csv/export",
     "/api/v1/admin/jobs/export",
@@ -95,9 +99,9 @@ export async function exportAdminCsv(): Promise<Response> {
 
   for (const url of urls) {
     try {
-      const response = await fetch(
-        `${(import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "")}${url}`,
-      );
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         return response;
       }
@@ -105,10 +109,9 @@ export async function exportAdminCsv(): Promise<Response> {
         throw new ApiError("Unable to export the CSV file.", response.status);
       }
     } catch (error) {
-      const apiError = error instanceof ApiError ? error : null;
-      if (apiError && apiError.status !== 404 && apiError.status !== 405) {
-        throw apiError;
-      }
+      if (error instanceof ApiError && [404, 405].includes(error.status)) continue;
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(`The API request to ${API_BASE_URL} could not be completed.`, 0, error);
     }
   }
 

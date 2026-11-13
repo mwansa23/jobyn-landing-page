@@ -45,31 +45,39 @@ function AdminPage() {
   const [candidates, setCandidates] = useState<AdminCandidate[]>([]);
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      setLoading(false);
-      return;
-    }
-
+    let active = true;
     void (async () => {
       try {
+        if (!(await isAuthenticated())) {
+          setLoading(false);
+          return;
+        }
+        setSignedIn(true);
         const [jobsData, candidatesData, applicationsData] = await Promise.all([
           fetchAdminJobs(25),
           fetchAdminCandidates(25),
           fetchAdminApplications(25),
         ]);
+        if (!active) return;
         setJobs(jobsData);
         setCandidates(candidatesData);
         setApplications(applicationsData);
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : "Unable to load admin data.");
+        if (active) {
+          setError(err instanceof ApiError ? err.message : "Unable to load admin data.");
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleExportCsv = async () => {
@@ -92,7 +100,7 @@ function AdminPage() {
     }
   };
 
-  if (!isAuthenticated()) {
+  if (!loading && !signedIn) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Navbar />

@@ -4,7 +4,7 @@
  * Maps the backend response onto the shape the existing Coach page renders,
  * with safe fallbacks so every section keeps rendering when fields are missing.
  */
-import { apiRequest, ApiError, getStoredToken } from "./api";
+import { apiRequest } from "./api";
 
 export type Strength = {
   title: string;
@@ -330,14 +330,9 @@ export function mapCareerCoach(raw: unknown): CareerCoachData {
 
 /** GET /api/v1/career/latest */
 export async function fetchLatestCareerCoach(): Promise<CareerCoachData> {
-  const token = getStoredToken();
-  if (!token) {
-    throw new ApiError("Please sign in to view your career coach.", 401);
-  }
   const data = await apiRequest<unknown>("/api/v1/career/latest", {
     method: "GET",
-    auth: true,
-    headers: { Authorization: `Bearer ${token}` },
+    auth: "required",
   });
   return mapCareerCoach(data);
 }

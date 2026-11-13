@@ -2,16 +2,13 @@
  * Reusable API client for the Jobyn AI FastAPI backend.
  *
  * Base URL comes from VITE_API_BASE_URL (Vite project).
- * Falls back to the local FastAPI dev server.
  */
 
-import { getCurrentFirebaseIdToken, getFirebaseCurrentUser } from "./firebase";
+import { getCurrentAccessToken, isSupabaseConfigured } from "./supabase";
 
 export const API_BASE_URL: string =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "") ??
-  "http://127.0.0.1:8000";
-
-const TOKEN_KEY = "jobyn.access_token";
+  "https://jobyn-ai-v2-djv8-git-feature-cv-tailoring-studio-jobyn-ai.vercel.app";
 
 export class ApiError extends Error {
   status: number;
@@ -22,35 +19,6 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
-  }
-}
-
-/** Reads the legacy Jobyn access token (browser only). Firebase tokens are not stored here. */
-export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-/** Retained for compatibility with existing callers; Firebase auth does not use this storage. */
-export function setStoredToken(token: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    /* storage unavailable */
-  }
-}
-
-export function clearStoredToken(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* storage unavailable */
   }
 }
 
@@ -78,7 +46,7 @@ export function parseApiErrorMessage(payload: unknown, status: number): string {
       if (msgs.length) return msgs.join("; ");
     }
   }
-  if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 401) return "Your session is not authorized for this request.";
   if (status === 403) return "You don't have permission to do that.";
   return `Request failed (${status}).`;
 }
@@ -88,16 +56,13 @@ type RequestOptions = {
   /** JSON body — ignored when `formData` is provided. */
   body?: unknown;
   formData?: FormData;
-  /** Attach the current Firebase ID token, or a legacy stored Jobyn token when no Firebase session exists. */
-  auth?: boolean;
+  /** Attach the current Supabase access token; "required" fails if there is no session. */
+  auth?: boolean | "required";
   headers?: Record<string, string>;
   signal?: AbortSignal;
 };
 
-/**
- * Core request helper: builds the URL, attaches the current Firebase ID token,
- * parses JSON, and raises ApiError for non-2xx responses.
- */
+/** Builds the URL, attaches the current Supabase access token, and parses the response. */
 export async function apiRequest<T = unknown>(
   path: string,
   options: RequestOptions = {},
@@ -106,10 +71,14 @@ export async function apiRequest<T = unknown>(
 
   const finalHeaders: Record<string, string> = { Accept: "application/json", ...headers };
 
-  if (auth) {
-    const firebaseUser = getFirebaseCurrentUser();
-    const token = firebaseUser ? await getCurrentFirebaseIdToken() : getStoredToken();
+  if (auth !== false && isSupabaseConfigured()) {
+    const token = await getCurrentAccessToken();
     if (token) finalHeaders["Authorization"] = `Bearer ${token}`;
+    if (auth === "required" && !token) {
+      throw new ApiError("Please sign in to continue.", 401);
+    }
+  } else if (auth === "required") {
+    throw new ApiError("Supabase authentication is not configured.", 500);
   }
 
   let payload: BodyInit | undefined;
@@ -134,11 +103,11 @@ export async function apiRequest<T = unknown>(
       body: payload,
       signal,
     });
-  } catch {
-    throw new ApiError(
-      `Cannot reach the API at ${API_BASE_URL}. Is the FastAPI server running?`,
-      0,
-    );
+  } catch (error) {
+    if (error && typeof error === "object" && "name" in error && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(`The API request to ${API_BASE_URL} could not be completed.`, 0, error);
   }
 
   const text = await response.text();
@@ -152,7 +121,6 @@ export async function apiRequest<T = unknown>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && !getFirebaseCurrentUser()) clearStoredToken();
     throw new ApiError(parseApiErrorMessage(data, response.status), response.status, data);
   }
 

@@ -1,12 +1,6 @@
 /** Resume upload service backed by POST /api/v1/resume/upload. */
-import {
-  API_BASE_URL,
-  ApiError,
-  getStoredToken,
-  clearStoredToken,
-  parseApiErrorMessage,
-} from "./api";
-import { getCurrentFirebaseIdToken, getFirebaseCurrentUser } from "./firebase";
+import { API_BASE_URL, ApiError, parseApiErrorMessage } from "./api";
+import { getCurrentAccessToken } from "./supabase";
 
 export type ParsedResumeRead = Record<string, unknown>;
 
@@ -44,8 +38,8 @@ export async function uploadMultipartDocument(
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<ParsedResumeRead> {
-  const firebaseUser = getFirebaseCurrentUser();
-  const token = firebaseUser ? await getCurrentFirebaseIdToken() : getStoredToken();
+  const token = await getCurrentAccessToken();
+  if (!token) throw new ApiError("Please sign in before uploading your CV.", 401);
 
   return new Promise((resolve, reject) => {
     const form = new FormData();
@@ -108,7 +102,6 @@ export async function uploadMultipartDocument(
         resolve(payload);
         return;
       }
-      if (xhr.status === 401 && !getFirebaseCurrentUser()) clearStoredToken();
       reject(new ApiError(parseApiErrorMessage(data, xhr.status), xhr.status, data));
     };
 

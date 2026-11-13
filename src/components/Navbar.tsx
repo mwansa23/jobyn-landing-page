@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Menu, X, Sparkles } from "lucide-react";
 import { isAuthenticated, logout } from "@/lib/auth";
+import { toast } from "sonner";
 
 const navLinks = [
   { label: "Upload CV", to: "/upload" },
@@ -21,13 +22,28 @@ export function Navbar() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setSignedIn(isAuthenticated());
+    let active = true;
+    void isAuthenticated()
+      .then((authenticated) => {
+        if (active) setSignedIn(authenticated);
+      })
+      .catch((error: unknown) => {
+        if (active)
+          toast.error(error instanceof Error ? error.message : "Could not check your session.");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    setSignedIn(false);
-    navigate({ to: "/" });
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setSignedIn(false);
+      navigate({ to: "/" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not log out.");
+    }
   };
 
   return (
@@ -108,7 +124,7 @@ export function Navbar() {
                   type="button"
                   onClick={() => {
                     setIsOpen(false);
-                    handleLogout();
+                    void handleLogout();
                   }}
                   className="rounded-md px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >

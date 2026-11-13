@@ -1,7 +1,13 @@
 import { ApiError, apiRequest } from "./api";
 
 export type ApplicationStatus =
-  "draft" | "applied" | "under_review" | "interviewing" | "offered" | "rejected" | "withdrawn";
+  | "draft"
+  | "applied"
+  | "under_review"
+  | "interviewing"
+  | "offered"
+  | "rejected"
+  | "withdrawn";
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   draft: "Draft",

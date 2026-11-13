@@ -143,20 +143,46 @@ function parseColumnMapping(value: string): Record<string, string> | null {
 
 function AdminVacanciesPage() {
   const [access, setAccess] = useState<Access>("checking");
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) return setAccess("signed-out");
-    getMe()
-      .then((me) => setAccess(me.role === "admin" && me.is_active ? "admin" : "forbidden"))
-      .catch((e) =>
-        setAccess(
-          e instanceof ApiError && e.status === 401
-            ? "signed-out"
-            : e instanceof ApiError && e.status === 403
-              ? "forbidden"
-              : "error",
-        ),
-      );
+    let active = true;
+    void isAuthenticated()
+      .then((authenticated) => {
+        if (!active) return;
+        if (!authenticated) {
+          setAccess("signed-out");
+          return;
+        }
+        return getMe()
+          .then((me) => {
+            if (active) setAccess(me.role === "admin" && me.is_active ? "admin" : "forbidden");
+          })
+          .catch((error: unknown) => {
+            if (!active) return;
+            if (error instanceof ApiError && error.status === 401) {
+              setAccess("signed-out");
+            } else if (error instanceof ApiError && error.status === 403) {
+              setAccess("forbidden");
+            } else {
+              setAccessError(
+                error instanceof Error
+                  ? error.message
+                  : "The server could not verify your account.",
+              );
+              setAccess("error");
+            }
+          });
+      })
+      .catch(() => {
+        if (active) {
+          setAccessError("Could not check the current Supabase session.");
+          setAccess("error");
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
@@ -200,7 +226,8 @@ function AdminVacanciesPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Could not verify your account</AlertTitle>
               <AlertDescription>
-                The server could not be reached. Please try again shortly.
+                {accessError ??
+                  "The server could not verify your account. Please try again shortly."}
               </AlertDescription>
             </Alert>
           )}

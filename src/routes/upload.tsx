@@ -78,7 +78,20 @@ function UploadPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setSignedIn(isAuthenticated());
+    let active = true;
+    void isAuthenticated()
+      .then((authenticated) => {
+        if (active) setSignedIn(authenticated);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setSignedIn(false);
+          setError(error instanceof Error ? error.message : "Could not check your session.");
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleFile = useCallback((selected: File) => {
@@ -99,7 +112,15 @@ function UploadPage() {
 
   const startUpload = useCallback(async () => {
     if (!file) return;
-    if (!isAuthenticated()) {
+    let authenticated: boolean;
+    try {
+      authenticated = await isAuthenticated();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not check your session.");
+      setStatus("error");
+      return;
+    }
+    if (!authenticated) {
       setSignedIn(false);
       setAuthError(true);
       setError("Please sign in before uploading your CV.");

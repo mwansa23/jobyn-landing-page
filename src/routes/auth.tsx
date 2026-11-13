@@ -8,13 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { setStoredToken, setStoredUser, type CurrentUser } from "@/lib/auth";
-import { ApiError, apiRequest } from "@/lib/api";
-
-type TokenResponse = {
-  access_token: string;
-  token_type?: string;
-};
+import { login } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -49,34 +44,17 @@ function AuthPage() {
     setBusy(true);
     setError(null);
     try {
-      const credentials = new URLSearchParams({
-        username: email.trim(),
-        password,
-      });
-      const tokenResponse = await apiRequest<TokenResponse>("/api/v1/auth/login", {
-        method: "POST",
-        body: credentials,
-        auth: false,
-      });
-      if (!tokenResponse.access_token) {
-        throw new ApiError("The server did not return an access token.", 502);
-      }
-      setStoredToken(tokenResponse.access_token);
-
-      const user = await apiRequest<CurrentUser>("/api/v1/auth/me", {
-        method: "GET",
-        auth: false,
-        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-      });
-      setStoredUser(user);
+      await login({ email, password });
       navigate({ to: "/upload" });
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.status === 401
-            ? "Invalid username or password. Please try again."
+            ? "Invalid email or password. Please try again."
             : err.message
-          : "Something went wrong. Please try again.",
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
       );
     } finally {
       setBusy(false);
@@ -101,13 +79,13 @@ function AuthPage() {
           <Card className="p-6">
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Username or email</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
-                  type="text"
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="username"
+                  autoComplete="email"
                   required
                 />
               </div>

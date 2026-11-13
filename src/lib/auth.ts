@@ -1,33 +1,10 @@
-/** Authentication service backed by Firebase Auth with Jobyn API provisioning. */
-import {
-  createUserWithEmailAndPassword,
-  deleteUser,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-  type User,
-  type UserCredential,
-} from "firebase/auth";
-
-import {
-  ApiError,
-  apiRequest,
-  clearStoredToken,
-  getStoredToken,
-  setStoredToken as storeApiToken,
-} from "./api";
-import {
-  getCurrentFirebaseIdToken,
-  getFirebaseAuth,
-  getFirebaseCurrentUser,
-  isFirebaseConfigured,
-  waitForFirebaseAuthPersistence,
-} from "./firebase";
+/** Authentication service backed by Supabase Auth. */
+import { ApiError, apiRequest } from "./api";
+import { getCurrentAccessToken, getSupabaseClient, isSupabaseConfigured } from "./supabase";
 
 export type AuthResponse = {
-  access_token: string;
+  access_token: string | null;
   token_type?: string;
-  [key: string]: unknown;
 };
 
 export type RegisterInput = {
@@ -41,87 +18,55 @@ export type LoginInput = {
   password: string;
 };
 
-function firebaseAuthError(error: unknown): ApiError {
-  const code =
-    typeof error === "object" && error && "code" in error
-      ? String((error as { code?: unknown }).code)
-      : "";
-
-  const messages: Record<string, string> = {
-    "auth/email-already-in-use": "An account with this email already exists.",
-    "auth/invalid-credential": "Invalid email or password.",
-    "auth/invalid-email": "Please enter a valid email address.",
-    "auth/weak-password": "Choose a stronger password.",
-    "auth/user-disabled": "This account is disabled.",
-  };
-
-  return new ApiError(messages[code] ?? "Authentication failed. Please try again.", 401, error);
-}
-
-async function authResponse(user: User): Promise<AuthResponse> {
-  const accessToken = await user.getIdToken();
-  if (!accessToken) throw new ApiError("Firebase did not return an ID token.", 401);
-
-  // The API accepts this identity only when it is already bound to a Jobyn
-  // account; Firebase authentication does not create or link accounts.
-  await apiRequest<CurrentUser>("/api/v1/auth/me", { method: "GET", auth: true });
-
-  return {
-    access_token: accessToken,
-    token_type: "bearer",
-  };
+function authError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error;
+  if (error instanceof Error) {
+    const status =
+      typeof error === "object" && "status" in error && typeof error.status === "number"
+        ? error.status
+        : 401;
+    const message = error.message.includes("Invalid login credentials")
+      ? "Invalid email or password."
+      : error.message;
+    return new ApiError(message, status, error);
+  }
+  return new ApiError("Authentication failed. Please try again.", 401, error);
 }
 
 export async function register(input: RegisterInput): Promise<AuthResponse> {
-  let credential: UserCredential | null = null;
   try {
-    const auth = await waitForFirebaseAuthPersistence();
-    credential = await createUserWithEmailAndPassword(
-      auth,
-      input.email.trim().toLowerCase(),
-      input.password,
-    );
-
-    if (input.full_name.trim()) {
-      await updateProfile(credential.user, { displayName: input.full_name.trim() });
-    }
-
-    return await authResponse(credential.user);
+    const { data, error } = await getSupabaseClient().auth.signUp({
+      email: input.email.trim().toLowerCase(),
+      password: input.password,
+      options: { data: { full_name: input.full_name.trim() } },
+    });
+    if (error) throw error;
+    if (!data.user) throw new ApiError("Supabase did not return a user.", 502);
+    return { access_token: data.session?.access_token ?? null, token_type: "bearer" };
   } catch (error) {
-    // Roll back the Firebase account if anything after creation failed, so a
-    // failed Jobyn provisioning does not leave an orphaned, unusable account.
-    if (credential) {
-      await deleteUser(credential.user).catch(() => undefined);
-    }
-    if (error instanceof ApiError) throw error;
-    throw firebaseAuthError(error);
+    throw authError(error);
   }
 }
 
 export async function login(input: LoginInput): Promise<AuthResponse> {
   try {
-    const auth = await waitForFirebaseAuthPersistence();
-    const credential = await signInWithEmailAndPassword(
-      auth,
-      input.email.trim().toLowerCase(),
-      input.password,
-    );
-    return authResponse(credential.user);
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+      email: input.email.trim().toLowerCase(),
+      password: input.password,
+    });
+    if (error) throw error;
+    if (!data.session) throw new ApiError("Supabase did not create an authenticated session.", 401);
+    return { access_token: data.session.access_token, token_type: "bearer" };
   } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw firebaseAuthError(error);
+    throw authError(error);
   }
 }
 
-export function logout(): void {
-  if (isFirebaseConfigured()) {
-    try {
-      void signOut(getFirebaseAuth()).catch(() => undefined);
-    } catch {
-      // Firebase is optional when using the legacy Jobyn token.
-    }
+export async function logout(): Promise<void> {
+  if (isSupabaseConfigured()) {
+    const { error } = await getSupabaseClient().auth.signOut();
+    if (error) throw authError(error);
   }
-  clearStoredToken();
   if (typeof window !== "undefined") {
     try {
       window.sessionStorage.removeItem("latest_resume_profile");
@@ -131,8 +76,9 @@ export function logout(): void {
   }
 }
 
-export function isAuthenticated(): boolean {
-  return Boolean(getFirebaseCurrentUser() ?? getStoredToken());
+export async function isAuthenticated(): Promise<boolean> {
+  if (typeof window === "undefined" || !isSupabaseConfigured()) return false;
+  return Boolean(await getCurrentAccessToken());
 }
 
 /** Public user payload from GET /api/v1/auth/me (UserRead). */
@@ -146,24 +92,9 @@ export type CurrentUser = {
   created_at: string;
 };
 
-const USER_KEY = "jobyn.user";
-
-export function setStoredToken(token: string): void {
-  storeApiToken(token);
-}
-
-export function setStoredUser(user: CurrentUser): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(USER_KEY, JSON.stringify(user));
-  } catch {
-    /* storage unavailable */
-  }
-}
-
-/** GET /api/v1/auth/me — uses the current Firebase ID token when available. */
+/** GET /api/v1/auth/me — uses the current Supabase access token. */
 export async function fetchCurrentUser(): Promise<CurrentUser> {
-  return apiRequest<CurrentUser>("/api/v1/auth/me", { method: "GET", auth: true });
+  return apiRequest<CurrentUser>("/api/v1/auth/me", { method: "GET", auth: "required" });
 }
 
-export { getCurrentFirebaseIdToken as getFirebaseIdToken, getStoredToken };
+export { getCurrentAccessToken };

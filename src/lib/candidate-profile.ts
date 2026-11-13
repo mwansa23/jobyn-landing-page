@@ -3,7 +3,7 @@
  * Maps the backend response onto the shape the existing Profile page renders,
  * with safe fallbacks so every section keeps rendering when fields are missing.
  */
-import { apiRequest, ApiError, getStoredToken } from "./api";
+import { apiRequest } from "./api";
 import { getStoredResumeResult } from "./resume";
 
 export type CandidateProfile = {
@@ -221,15 +221,9 @@ export function hasCandidateProfileData(profile: CandidateProfile): boolean {
 
 /** GET /api/v1/resume/profile/{candidate_id} */
 export async function fetchCandidateProfile(candidateId: string): Promise<CandidateProfile> {
-  // The endpoint is JWT-protected: fail fast (instead of firing an anonymous
-  // request that always 401s) when no token is stored.
-  const token = getStoredToken();
-  if (!token) {
-    throw new ApiError("Please sign in to view your profile.", 401);
-  }
   const data = await apiRequest<unknown>(
     `/api/v1/resume/profile/${encodeURIComponent(candidateId)}`,
-    { method: "GET", auth: true, headers: { Authorization: `Bearer ${token}` } },
+    { method: "GET", auth: "required" },
   );
   return mapCandidateProfile(data);
 }
