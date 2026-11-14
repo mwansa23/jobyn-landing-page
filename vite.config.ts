@@ -10,8 +10,9 @@ export default defineConfig({
   nitro: {
     cloudflare: {
       wrangler: {
-        name: "jobyn-landing-page",
-      },
+  name: "jobyn-landing-page",
+  previews: {},
+},
     },
   },
 });
