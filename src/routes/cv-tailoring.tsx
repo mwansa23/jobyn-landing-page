@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { ApiError } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
 import { getCandidateId } from "@/lib/candidate-profile";
 import {
   downloadGeneratedText,
@@ -124,6 +124,10 @@ function CvTailoringPage() {
     setError(null);
 
     try {
+      await apiRequest("/api/v1/tailoring/job-description/paste", {
+        method: "POST",
+        body: { text: jobDescription },
+      });
       const result = await analyzeCvAgainstJobDescription({
         jobDescription,
         cvText: cvText || undefined,
