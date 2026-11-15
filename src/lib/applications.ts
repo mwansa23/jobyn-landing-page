@@ -229,12 +229,7 @@ export async function analyzeCvAgainstJobDescription(input: {
   }
 
   const result = await tryApiRoutes<TailoringResult>(
-    [
-      { path: "/api/v1/resume/analyze", method: "POST", body: payload },
-      { path: "/api/v1/resume/tailor/analyze", method: "POST", body: payload },
-      { path: "/api/v1/resume/tailor", method: "POST", body: payload },
-      { path: "/api/v1/resume/compare", method: "POST", body: payload },
-    ],
+    [{ path: "/api/v1/tailoring/analyze", method: "POST", body: payload }],
     "Unable to analyze this CV against the job description.",
   );
 
@@ -277,13 +272,7 @@ export async function generateTailoredCv(input: {
   }
 
   const result = await tryApiRoutes<TailoringResult>(
-    [
-      { path: "/api/v1/resume/generate-tailored-cv", method: "POST", body: payload },
-      { path: "/api/v1/resume/tailor", method: "POST", body: payload },
-      { path: "/api/v1/resume/tailor/generate", method: "POST", body: payload },
-      { path: "/api/v1/resume/tailor/cv", method: "POST", body: payload },
-      { path: "/api/v1/cv-tailoring/generate", method: "POST", body: payload },
-    ],
+    [{ path: "/api/v1/tailoring/cv/generate", method: "POST", body: payload }],
     "Unable to generate the tailored CV.",
   );
 
