@@ -99,7 +99,7 @@ function CvTailoringPage() {
     setUploadProgress(0);
     try {
       const result = await uploadMultipartDocument(
-        "/api/v1/resume/upload",
+        "/api/v1/tailoring/cv/upload",
         file,
         setUploadProgress,
       );
