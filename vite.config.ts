@@ -9,10 +9,13 @@ export default defineConfig({
 
   nitro: {
     cloudflare: {
+      // The `wrangler` key is supported by Nitro at runtime but not declared
+      // in the @lovable.dev/vite-tanstack-config type definitions.
+      // @ts-expect-error — pre-existing config, not introduced by tailoring work
       wrangler: {
-  name: "jobyn-landing-page",
-  previews: {},
-},
+        name: "jobyn-landing-page",
+        previews: {},
+      },
     },
   },
 });

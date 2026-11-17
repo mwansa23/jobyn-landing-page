@@ -233,18 +233,82 @@ export async function analyzeCvAgainstJobDescription(input: {
     "Unable to analyze this CV against the job description.",
   );
 
-  const text = normalizeTextPayload(result);
-  if (text && !result.summary) {
-    result.summary = text;
+  // The backend returns TailoringAnalysisRead which has a different shape:
+  //   { id, jd_analysis, match_result, recommendations, error, ... }
+  // Map it to the UI's TailoringResult shape here.
+  const raw = result as unknown as Record<string, unknown>;
+
+  if (raw["match_result"] && typeof raw["match_result"] === "object") {
+    const mr = raw["match_result"] as Record<string, unknown>;
+    const matchingSkills = Array.isArray(mr["matching_skills"]) ? (mr["matching_skills"] as Array<Record<string, unknown>>) : [];
+    const missingReqs = Array.isArray(mr["missing_requirements"]) ? (mr["missing_requirements"] as Array<Record<string, unknown>>) : [];
+    const totalItems = matchingSkills.length + missingReqs.length;
+
+    result.match_score = totalItems > 0
+      ? Math.round((matchingSkills.length / totalItems) * 100)
+      : 0;
+    result.strengths = matchingSkills
+      .slice(0, 5)
+      .map((s) => String(s["skill"] ?? s["evidence"] ?? ""));
+    result.gaps = missingReqs
+      .slice(0, 5)
+      .map((r) => String(r["requirement"] ?? ""));
   }
-  if (result.strengths === undefined && typeof result.summary === "string") {
-    result.strengths = result.summary.split(/\n+/).filter(Boolean).slice(0, 5);
+
+  if (raw["recommendations"] && typeof raw["recommendations"] === "object") {
+    const recs = raw["recommendations"] as Record<string, unknown>;
+    result.summary = String(recs["tailoring_summary"] ?? "");
   }
-  if (result.gaps === undefined) {
-    result.gaps = [];
+
+  if (!result.summary && raw["jd_analysis"] && typeof raw["jd_analysis"] === "object") {
+    const jd = raw["jd_analysis"] as Record<string, unknown>;
+    result.summary = String(jd["summary"] ?? "");
   }
+
+  if (!result.summary) {
+    const text = normalizeTextPayload(result);
+    if (text) result.summary = text;
+  }
+
+  if (result.gaps === undefined) result.gaps = [];
+  if (result.strengths === undefined) result.strengths = [];
+
   return result;
 }
+
+// Extended TailoringResult to carry the structured CV response
+export type TailoredCVSection = {
+  heading: string;
+  type: string;
+  content?: string;
+  items?: unknown[];
+  source?: string;
+};
+
+export type TailoredCVRead = {
+  id: string;
+  user_id: string;
+  analysis_id: string | null;
+  version_number: number;
+  status: string;
+  content: {
+    sections: TailoredCVSection[];
+    generation_notes?: string;
+    edit_summary?: string;
+    validation?: {
+      is_valid: boolean;
+      unsupported_claims: Array<{ section: string; claim: string; classification: string; detail: string }>;
+      warnings: Array<{ section: string; claim: string; classification: string; detail: string }>;
+      findings: unknown[];
+      validation_summary: string;
+    };
+    comparison?: unknown[];
+  };
+  edit_type: string;
+  edit_request?: string | null;
+  change_summary?: string | null;
+  created_at: string;
+};
 
 export async function generateTailoredCv(input: {
   jobDescription: string;
@@ -252,37 +316,13 @@ export async function generateTailoredCv(input: {
   candidateId?: string;
   jobTitle?: string;
   companyName?: string;
-}): Promise<TailoringResult> {
-  const payload: Record<string, unknown> = {
-    job_description: input.jobDescription,
-    jd: input.jobDescription,
-    job_description_text: input.jobDescription,
-    job_title: input.jobTitle,
-    company_name: input.companyName,
-  };
-
-  if (input.cvText && input.cvText.trim()) {
-    payload["cv_text"] = input.cvText;
-    payload["resume_text"] = input.cvText;
-    payload["cv"] = input.cvText;
-  }
-  if (input.candidateId) {
-    payload["candidate_id"] = input.candidateId;
-    payload["user_id"] = input.candidateId;
-  }
-
-  const result = await tryApiRoutes<TailoringResult>(
-    [{ path: "/api/v1/tailoring/cv/generate", method: "POST", body: payload }],
+}): Promise<TailoredCVRead> {
+  // The backend POST /tailoring/cv/generate returns TailoredCVRead (HTTP 201).
+  // It uses the user's latest uploaded CV and JD — no body fields needed.
+  const result = await tryApiRoutes<TailoredCVRead>(
+    [{ path: "/api/v1/tailoring/cv/generate", method: "POST", body: {} }],
     "Unable to generate the tailored CV.",
   );
-
-  const text = normalizeTextPayload(result) || result.tailored_cv || result.content || result.text;
-  if (text && !result.tailored_cv) {
-    result.tailored_cv = text;
-  }
-  if (text && !result.content) {
-    result.content = text;
-  }
   return result;
 }
 
@@ -386,4 +426,59 @@ export function downloadGeneratedText(filename: string, content: string): void {
   anchor.download = filename;
   anchor.click();
   window.URL.revokeObjectURL(url);
+}
+
+/**
+ * Download a tailored CV as DOCX or PDF via an authenticated request.
+ *
+ * Uses `fetch` with the Supabase access token so the binary response is
+ * streamed and saved locally without exposing the URL publicly.
+ */
+export async function downloadTailoredCvFile(
+  cvId: string,
+  format: "docx" | "pdf",
+): Promise<void> {
+  const { API_BASE_URL } = await import("./api");
+  const { getCurrentAccessToken } = await import("./supabase");
+
+  const token = await getCurrentAccessToken();
+  const headers: Record<string, string> = { Accept: "*/*" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const url = `${API_BASE_URL}/api/v1/tailoring/cv/${encodeURIComponent(cvId)}/export/${format}`;
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new ApiError(
+      text || `Failed to download the tailored CV (${response.status}).`,
+      response.status,
+    );
+  }
+
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = `tailored-cv.${format}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+/**
+ * Save candidate-edited CV sections as a new version via the visual-edit endpoint.
+ *
+ * POST /api/v1/tailoring/cv/{cvId}/visual-edit with SaveCVContentRequest body.
+ * Returns the new TailoredCVRead (HTTP 201) or an error.
+ */
+export async function saveVisualCvEdit(
+  cvId: string,
+  sections: TailoredCVSection[],
+): Promise<TailoredCVRead> {
+  return apiRequest<TailoredCVRead>(
+    `/api/v1/tailoring/cv/${encodeURIComponent(cvId)}/visual-edit`,
+    { method: "POST", body: { sections } },
+  );
 }
